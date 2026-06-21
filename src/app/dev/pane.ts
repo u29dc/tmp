@@ -234,7 +234,9 @@ const ensureDevPaneStyle = (): void => {
 			overflow: auto;
 			overscroll-behavior: contain;
 			scrollbar-width: none;
+			user-select: none;
 			-ms-overflow-style: none;
+			-webkit-user-select: none;
 		}
 
 		[data-dev-pane='true']::-webkit-scrollbar {

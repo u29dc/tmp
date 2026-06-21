@@ -7,18 +7,19 @@
 - Runtime entry: [`src/app/app.ts`](src/app/app.ts)
 - Runtime loop: [`src/app/core/app.ts`](src/app/core/app.ts)
 - Runtime settings: [`src/app/core/settings.ts`](src/app/core/settings.ts)
-- Test fixture: [`src/pages/test.astro`](src/pages/test.astro)
+- About placeholder: [`src/pages/about.astro`](src/pages/about.astro)
 
 ## 2. Repository Structure
 
 ```text
 .
 ├── src/app/            browser runtime modules and UI enhancements
+├── src/lib/            shared server/build helpers for metadata and feeds
 ├── src/layouts/        Astro document shell and SEO placeholders
-├── src/pages/          blank homepage, robots, sitemap, and test fixture
+├── src/pages/          placeholder homepage, metadata routes, feeds, and scroll fixture
 ├── src/styles/         shared CSS imports, tokens, and base styles
 ├── scripts/            build and post-build utilities
-├── public/             static placeholder assets and headers
+├── public/             static placeholder assets, Geist fonts, and headers
 └── AGENTS.md           canonical repo-level agent instructions
 ```
 
@@ -56,6 +57,9 @@
 - [`src/app/systems/motion.ts`](src/app/systems/motion.ts): small cancellable motion scheduler for route and future page choreography.
 - [`src/app/systems/theme.ts`](src/app/systems/theme.ts): applies theme settings, CSS variables, `color-scheme`, and runtime theme metadata.
 - [`src/app/ui/`](src/app/ui): data-attribute UI state for links and buttons.
+- [`src/data/site.ts`](src/data/site.ts): placeholder metadata, icon, feed, and social-card defaults.
+- [`src/data/routes.ts`](src/data/routes.ts): route and feed-item templates for sitemap, RSS, and JSON Feed output.
+- [`src/lib/seo.ts`](src/lib/seo.ts): shared URL, feed, and XML helpers.
 
 ## 6. Runtime and State
 
@@ -72,6 +76,7 @@
 - Avoid parent-directory traversal like `../` for internal source imports when `@/*` is available.
 - Keep CSS tokens in [`src/styles/tokens.css`](src/styles/tokens.css); runtime numeric settings belong in [`src/app/core/settings.ts`](src/app/core/settings.ts).
 - Keep root page content blank or placeholder-only until this template is adapted for a real site.
+- Keep generated metadata routes generic; put project-specific pages, feed items, and CMS-derived entries behind `src/data/routes.ts` or a replacement data source.
 - Use scoped Conventional Commits such as `feat(runtime): add scroll range state`.
 
 ## 8. Constraints
@@ -79,6 +84,7 @@
 - Do not add real project copy, customer claims, certification claims, performance metrics, or private source material.
 - Do not commit `node_modules`, `dist`, `.astro`, `.tmp`, reference clones, private source material, or environment files.
 - Treat SEO metadata and social images as placeholders until a real deployment target exists.
+- `public/_headers` uses HSTS preload defaults; confirm HTTPS and subdomain control before deploying unchanged to a real domain.
 - Keep Tweakpane and dev-only controls behind the `import.meta.env.DEV` path.
 
 ## 9. Validation
