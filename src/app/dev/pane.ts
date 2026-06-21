@@ -6,6 +6,10 @@ import { Pane, type FolderApi } from "tweakpane";
 import { applyDevPaneTheme } from "@/app/dev/theme";
 
 const STYLE_ID = "template-dev-pane-style";
+const COPY_SETTINGS_TITLE = "Copy settings";
+const COPY_SETTINGS_SUCCESS_TITLE = "Copied JSON";
+const COPY_SETTINGS_ERROR_TITLE = "Copy failed";
+const COPY_TITLE_RESET_MS = 1600;
 
 export const createDevPane = (): (() => void) => {
 	ensureDevPaneStyle();
@@ -24,7 +28,7 @@ export const createDevPane = (): (() => void) => {
 	addScrollControls(pane);
 	addMotionControls(pane);
 	addDebugControls(pane);
-	addActionControls(pane, container);
+	const disposeActionControls = addActionControls(pane, container);
 
 	const handleChange = (): void => applyAllSettings(container);
 	pane.on("change", handleChange);
@@ -35,6 +39,7 @@ export const createDevPane = (): (() => void) => {
 
 	return () => {
 		systemThemeQuery.removeEventListener("change", handleSystemThemeChange);
+		disposeActionControls();
 		pane.dispose();
 		container.remove();
 	};
@@ -152,13 +157,44 @@ const addDebugControls = (pane: Pane): void => {
 	folder.addBinding(settings.debug, "showScrollState", { label: "Scroll state" });
 };
 
-const addActionControls = (pane: Pane, container: HTMLElement): void => {
+const addActionControls = (pane: Pane, container: HTMLElement): (() => void) => {
 	const folder = pane.addFolder({ title: "Actions", expanded: false });
+	const copyButton = folder.addButton({ title: COPY_SETTINGS_TITLE });
+	let copyTitleReset: number | undefined;
+
+	const setCopyButtonTitle = (title: string): void => {
+		copyButton.title = title;
+		if (copyTitleReset !== undefined) window.clearTimeout(copyTitleReset);
+		if (title === COPY_SETTINGS_TITLE) return;
+		copyTitleReset = window.setTimeout(() => {
+			copyButton.title = COPY_SETTINGS_TITLE;
+			copyTitleReset = undefined;
+		}, COPY_TITLE_RESET_MS);
+	};
+
+	copyButton.on("click", () => {
+		void copySettingsToClipboard()
+			.then(() => setCopyButtonTitle(COPY_SETTINGS_SUCCESS_TITLE))
+			.catch(() => setCopyButtonTitle(COPY_SETTINGS_ERROR_TITLE));
+	});
+
 	folder.addButton({ title: "Reset settings" }).on("click", () => {
 		resetSettings();
 		applyAllSettings(container);
 		pane.refresh();
 	});
+
+	return () => {
+		if (copyTitleReset !== undefined) window.clearTimeout(copyTitleReset);
+	};
+};
+
+const copySettingsToClipboard = async (): Promise<void> => {
+	const payload = `${JSON.stringify(settings, null, 2)}\n`;
+
+	if (!navigator.clipboard || !window.isSecureContext)
+		throw new Error("Clipboard API unavailable.");
+	await navigator.clipboard.writeText(payload);
 };
 
 const applyAllSettings = (container: HTMLElement): void => {
