@@ -196,7 +196,13 @@ const ensureDevPaneStyle = (): void => {
 			inline-size: min(20rem, calc(100vw - 1.5rem));
 			max-block-size: calc(100dvh - 1.5rem);
 			overflow: auto;
-			scrollbar-width: thin;
+			overscroll-behavior: contain;
+			scrollbar-width: none;
+			-ms-overflow-style: none;
+		}
+
+		[data-dev-pane='true']::-webkit-scrollbar {
+			display: none;
 		}
 
 		[data-dev-pane='true'] .tp-rotv {
