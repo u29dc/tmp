@@ -17,6 +17,7 @@
 ├── src/layouts/        Astro document shell and SEO placeholders
 ├── src/pages/          blank homepage, robots, sitemap, and test fixture
 ├── src/styles/         shared CSS imports, tokens, and base styles
+├── scripts/            build and post-build utilities
 ├── public/             static placeholder assets and headers
 └── AGENTS.md           canonical repo-level agent instructions
 ```
@@ -39,9 +40,11 @@
 
 - `bun install` - install dependencies and hooks.
 - `bun run dev` - run Astro dev server.
+- `bun run build` - build Astro static output, then run the post-build minifier.
 - `bun run update` - update packages using the Astro alpha lane inherited from `www`.
 - `bun run util:format` - format supported source files with `oxfmt`.
 - `bun run util:lint` - lint source with `oxlint`.
+- `bun run util:minify` - minify built JS and HTML under `dist`.
 - `bun run util:types` - run Astro type diagnostics.
 - `bun run util:check` - run the full local quality gate.
 
