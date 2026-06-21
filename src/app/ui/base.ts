@@ -47,6 +47,11 @@ export abstract class Component extends BaseModule {
 	}
 
 	protected registerElements(elements: HTMLElement[]): void {
+		const nextElements = new Set(elements);
+		for (const element of this.states.keys()) {
+			if (!nextElements.has(element)) this.states.delete(element);
+		}
+
 		for (const element of elements) {
 			if (this.states.has(element)) continue;
 			this.states.set(element, {
@@ -122,6 +127,7 @@ export abstract class Component extends BaseModule {
 			frame.dt,
 		);
 		const changed =
+			state.changed ||
 			Math.abs(nextHover - state.hoverRatio) > settings.interaction.settleEpsilon ||
 			Math.abs(nextFocus - state.focusRatio) > settings.interaction.settleEpsilon ||
 			Math.abs(nextPress - state.pressRatio) > settings.interaction.settleEpsilon ||
@@ -151,6 +157,7 @@ export abstract class Component extends BaseModule {
 			(1 - state.pressRatio * (1 - settings.interaction.pressScale)).toFixed(4),
 		);
 		setDataset(state.element, "uiState", readUiState(state));
+		state.changed = false;
 	}
 }
 

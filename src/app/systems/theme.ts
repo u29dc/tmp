@@ -9,6 +9,7 @@ class Theme extends BaseModule {
 
 	private query: MediaQueryList | undefined;
 	private appliedKey = "";
+	private appliedRoot: HTMLElement | undefined;
 
 	override preInit(context: Context): void {
 		super.preInit(context);
@@ -24,6 +25,7 @@ class Theme extends BaseModule {
 
 	override resize(context: Context): void {
 		super.resize(context);
+		this.applySettings();
 	}
 
 	override update(frame: Frame): void {
@@ -38,9 +40,16 @@ class Theme extends BaseModule {
 		const scheme = this.readScheme();
 		const colors = scheme === "dark" ? settings.theme.dark : settings.theme.light;
 		const key = JSON.stringify({ mode: settings.theme.mode, scheme, colors });
-		if (key === this.appliedKey) return;
-		this.appliedKey = key;
 		const root = document.documentElement;
+		if (
+			key === this.appliedKey &&
+			root === this.appliedRoot &&
+			hasAppliedTheme(root, scheme, colors)
+		) {
+			return;
+		}
+		this.appliedKey = key;
+		this.appliedRoot = root;
 		setDataset(root, "theme", scheme);
 		setDataset(root, "themeMode", settings.theme.mode);
 		root.style.colorScheme = scheme;
@@ -66,6 +75,22 @@ class Theme extends BaseModule {
 		this.applySettings();
 	};
 }
+
+const hasAppliedTheme = (root: HTMLElement, scheme: ThemeScheme, colors: ThemeColors): boolean => {
+	const colorSchemeMeta = document.querySelector<HTMLMetaElement>("meta[name='color-scheme']");
+	const themeColorMeta = document.querySelector<HTMLMetaElement>(
+		"meta[name='theme-color'][data-runtime-theme-color]",
+	);
+	return (
+		root.dataset["theme"] === scheme &&
+		root.dataset["themeMode"] === settings.theme.mode &&
+		root.style.colorScheme === scheme &&
+		root.style.getPropertyValue("--site-ground") === colors.ground &&
+		root.style.getPropertyValue("--site-ink") === colors.ink &&
+		colorSchemeMeta?.content === scheme &&
+		themeColorMeta?.content === colors.ground
+	);
+};
 
 const writeThemeColors = (root: HTMLElement, colors: ThemeColors): void => {
 	setStyleProperty(root, "--site-ground", colors.ground);

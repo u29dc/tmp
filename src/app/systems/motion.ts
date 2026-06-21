@@ -190,6 +190,7 @@ class Motion extends BaseModule {
 	};
 
 	private readonly handleRouteLoad = (): void => {
+		if (this.routeHandle) return;
 		if (document.documentElement.dataset["pageState"] === "idle") return;
 		this.routeHandle = this.delay("route.load.idle", settings.motion.routeBufferMs, () => {
 			setDataset(document.documentElement, "pageState", "idle");

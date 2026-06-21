@@ -68,6 +68,15 @@ export class App {
 		this.modules.theme.dispose?.();
 	}
 
+	refreshPage(): void {
+		if (!isBrowser || !this.started) return;
+		document.documentElement.dataset["runtime"] = "ready";
+		document.documentElement.dataset["runtimeVisible"] = String(
+			document.visibilityState === "visible",
+		);
+		this.resize();
+	}
+
 	private preInit(): void {
 		const context = this.createContext();
 		this.modules.device.preInit?.(context);
