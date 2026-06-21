@@ -1,0 +1,16 @@
+{
+	"extends": "astro/tsconfigs/strict",
+	"compilerOptions": {
+		"allowJs": false,
+		"baseUrl": ".",
+		"exactOptionalPropertyTypes": true,
+		"moduleResolution": "bundler",
+		"noUncheckedIndexedAccess": true,
+		"paths": {
+			"@/*": ["src/*"]
+		},
+		"types": ["astro/client", "node"]
+	},
+	"include": [".astro/types.d.ts", "src/**/*.astro", "src/**/*.ts", "astro.config.ts"],
+	"exclude": ["dist", "node_modules", ".tmp"]
+}
