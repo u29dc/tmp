@@ -3,6 +3,7 @@ import { settings, type ThemeColors } from "@/app/core/settings";
 import { setDataset, setStyleProperty } from "@/app/utils/dom";
 
 export type ThemeScheme = "light" | "dark";
+type ThemeHandler = (scheme: ThemeScheme, colors: ThemeColors) => void;
 
 class Theme extends BaseModule {
 	readonly name = "theme";
@@ -10,6 +11,7 @@ class Theme extends BaseModule {
 	private query: MediaQueryList | undefined;
 	private appliedKey = "";
 	private appliedRoot: HTMLElement | undefined;
+	private readonly changeHandlers = new Set<ThemeHandler>();
 
 	override preInit(context: Context): void {
 		super.preInit(context);
@@ -33,6 +35,7 @@ class Theme extends BaseModule {
 	}
 
 	override dispose(): void {
+		this.changeHandlers.clear();
 		super.dispose();
 	}
 
@@ -55,6 +58,7 @@ class Theme extends BaseModule {
 		root.style.colorScheme = scheme;
 		writeThemeColors(root, colors);
 		writeThemeMeta(scheme, colors);
+		this.emitChange(scheme, colors);
 	}
 
 	getScheme(): ThemeScheme {
@@ -65,10 +69,19 @@ class Theme extends BaseModule {
 		return this.getScheme() === "dark" ? settings.theme.dark : settings.theme.light;
 	}
 
+	onChange(handler: ThemeHandler): () => void {
+		this.changeHandlers.add(handler);
+		return () => this.changeHandlers.delete(handler);
+	}
+
 	private readScheme(): ThemeScheme {
 		if (settings.theme.mode === "light" || settings.theme.mode === "dark")
 			return settings.theme.mode;
 		return this.query?.matches ? "dark" : "light";
+	}
+
+	private emitChange(scheme: ThemeScheme, colors: ThemeColors): void {
+		for (const handler of this.changeHandlers) handler(scheme, colors);
 	}
 
 	private readonly handleSystemChange = (): void => {
@@ -128,3 +141,4 @@ export const theme = new Theme();
 export const applyThemeSettings = (): void => theme.applySettings();
 export const getThemeScheme = (): ThemeScheme => theme.getScheme();
 export const getThemeColors = (): ThemeColors => theme.getColors();
+export const onThemeChange = (handler: ThemeHandler): (() => void) => theme.onChange(handler);

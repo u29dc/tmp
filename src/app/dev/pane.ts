@@ -1,6 +1,6 @@
 import { resetSettings, settings, type ThemeColors } from "@/app/core/settings";
 import { applyScrollSettings } from "@/app/systems/scroll";
-import { applyThemeSettings } from "@/app/systems/theme";
+import { applyThemeSettings, onThemeChange } from "@/app/systems/theme";
 import { setDataset } from "@/app/utils/dom";
 import { Pane, type FolderApi } from "tweakpane";
 import { applyDevPaneTheme } from "@/app/dev/theme";
@@ -32,13 +32,10 @@ export const createDevPane = (): (() => void) => {
 
 	const handleChange = (): void => applyAllSettings(container);
 	pane.on("change", handleChange);
-
-	const systemThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-	const handleSystemThemeChange = (): void => applyAllSettings(container);
-	systemThemeQuery.addEventListener("change", handleSystemThemeChange);
+	const disposeThemeChange = onThemeChange(() => applyDevPaneTheme(container));
 
 	return () => {
-		systemThemeQuery.removeEventListener("change", handleSystemThemeChange);
+		disposeThemeChange();
 		disposeActionControls();
 		pane.dispose();
 		container.remove();

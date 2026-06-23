@@ -50,14 +50,6 @@ export const toggleClass = (element: Element, className: string, enabled: boolea
 	return true;
 };
 
-export const isPrimaryUnmodifiedClick = (event: MouseEvent): boolean =>
-	event.button === 0 &&
-	!event.metaKey &&
-	!event.ctrlKey &&
-	!event.shiftKey &&
-	!event.altKey &&
-	!event.defaultPrevented;
-
 export const focusElement = (element: HTMLElement): void => {
 	const hadTabIndex = element.hasAttribute("tabindex");
 	const previousTabIndex = element.getAttribute("tabindex");

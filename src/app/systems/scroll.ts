@@ -2,8 +2,14 @@ import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
 import type { DeviceProfile, ScrollRangeState, ScrollState } from "@/app/core/state";
 import {
+	onInputClickIntent,
+	onInputWheelIntent,
+	type InputClickIntent,
+	type InputWheelIntent,
+} from "@/app/systems/input";
+import { setRouteHash } from "@/app/systems/route";
+import {
 	focusElement,
-	isPrimaryUnmodifiedClick,
 	removeDataset,
 	removeStyleProperty,
 	setDataset,
@@ -45,9 +51,6 @@ const INVIEW_CLASS = "is-inview";
 const INTERACTIVE_ROOT_MARGIN = "100% 0px 100% 0px";
 const SETTLE_MS = 120;
 const RANGE_EPSILON = 0.000_1;
-const LINE_HEIGHT = 100 / 6;
-const SMOOTH_POINTER_QUERY = "(hover: hover) and (pointer: fine)";
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 const createState = (): ScrollState => ({
 	actual: 0,
@@ -91,27 +94,18 @@ class Scroll extends BaseModule {
 	private writeY: number | undefined;
 	private profileGeneration = -1;
 	private latestProfile: DeviceProfile | undefined;
-	private smoothPointerQuery: MediaQueryList | undefined;
-	private reducedMotionQuery: MediaQueryList | undefined;
 	private readonly animator = new ScrollAnimator();
 
 	override preInit(context: Context): void {
 		super.preInit(context);
 		this.latestProfile = context.profile;
-		this.bindCapability();
 		this.applyCapability(context.profile);
-		window.addEventListener("wheel", this.handleWheel, { passive: false });
 		window.addEventListener("scroll", this.handleScroll, { passive: true });
-		window.addEventListener("keydown", this.handleInterrupt, { passive: true });
-		window.addEventListener("pointerdown", this.handleInterrupt, { passive: true });
-		document.addEventListener("click", this.handleClick);
 		this.resizeObserver = this.createResizeObserver();
 		this.scan();
-		this.addCleanup(() => window.removeEventListener("wheel", this.handleWheel));
+		this.addCleanup(onInputWheelIntent(this.handleWheelIntent));
+		this.addCleanup(onInputClickIntent(this.handleClickIntent));
 		this.addCleanup(() => window.removeEventListener("scroll", this.handleScroll));
-		this.addCleanup(() => window.removeEventListener("keydown", this.handleInterrupt));
-		this.addCleanup(() => window.removeEventListener("pointerdown", this.handleInterrupt));
-		this.addCleanup(() => document.removeEventListener("click", this.handleClick));
 		this.addCleanup(() => this.observer?.disconnect());
 		this.addCleanup(() => this.resizeObserver?.disconnect());
 	}
@@ -134,6 +128,12 @@ class Scroll extends BaseModule {
 	override update(frame: Frame): void {
 		super.update(frame);
 		this.refreshCapability(frame.profile);
+		if (
+			this.smoothActive &&
+			(frame.input.pointer.wasPressed || frame.input.keyboard.hadKeyboardInput)
+		) {
+			this.syncFromWindow("native", frame.now);
+		}
 		if (frame.input.wheel.source !== "none" && !this.smoothActive) this.source = "wheel";
 
 		const nextState = this.readState(this.source, frame.dt, frame.now);
@@ -180,9 +180,7 @@ class Scroll extends BaseModule {
 	scrollTo(target: number | string | HTMLElement, options: ScrollToOptions = {}): void {
 		const y = this.resolveTargetY(target, options.offset ?? 0);
 		if (y === null) return;
-		const reducedMotion =
-			this.latestProfile?.reducedMotion ??
-			window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const reducedMotion = this.latestProfile?.reducedMotion ?? false;
 		this.source = "anchor";
 		this.stopSmooth();
 		window.scrollTo({
@@ -261,19 +259,6 @@ class Scroll extends BaseModule {
 		return observer;
 	}
 
-	private bindCapability(): void {
-		this.smoothPointerQuery = window.matchMedia(SMOOTH_POINTER_QUERY);
-		this.reducedMotionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
-		this.smoothPointerQuery.addEventListener("change", this.handleCapabilityChange);
-		this.reducedMotionQuery.addEventListener("change", this.handleCapabilityChange);
-		this.addCleanup(() =>
-			this.smoothPointerQuery?.removeEventListener("change", this.handleCapabilityChange),
-		);
-		this.addCleanup(() =>
-			this.reducedMotionQuery?.removeEventListener("change", this.handleCapabilityChange),
-		);
-	}
-
 	private refreshCapability(profile: DeviceProfile): void {
 		if (profile.generation === this.profileGeneration) return;
 		this.latestProfile = profile;
@@ -292,9 +277,9 @@ class Scroll extends BaseModule {
 	private shouldEnhance(profile: DeviceProfile): boolean {
 		return (
 			settings.scroll.smoothEnabled &&
-			Boolean(this.smoothPointerQuery?.matches) &&
-			!this.reducedMotionQuery?.matches &&
 			!profile.reducedMotion &&
+			profile.hover &&
+			profile.finePointer &&
 			profile.motionQuality === "full" &&
 			profile.pointerProfile !== "coarse" &&
 			profile.displayProfile !== "small" &&
@@ -557,20 +542,11 @@ class Scroll extends BaseModule {
 		this.source = "native";
 	};
 
-	private readonly handleWheel = (event: WheelEvent): void => {
+	private readonly handleWheelIntent = (intent: InputWheelIntent): void => {
 		this.applyCapability(this.latestProfile);
-		if (shouldUseNativeWheel(event, this.smoothEnabled)) return;
-		event.preventDefault();
-		this.startSmoothScroll(normalizeWheelDeltaY(event) * settings.scroll.wheelMultiplier);
-	};
-
-	private readonly handleInterrupt = (): void => {
-		if (!this.smoothActive) return;
-		this.syncFromWindow("native", performance.now());
-	};
-
-	private readonly handleCapabilityChange = (): void => {
-		this.applyCapability(this.latestProfile);
+		if (shouldUseNativeWheel(intent, this.smoothEnabled)) return;
+		intent.preventDefault();
+		this.startSmoothScroll(readSmoothWheelDeltaY(intent) * settings.scroll.wheelMultiplier);
 	};
 
 	private startSmoothScroll(deltaY: number): void {
@@ -592,9 +568,9 @@ class Scroll extends BaseModule {
 		this.animator.sync(clamp(window.scrollY, 0, this.state.limit));
 	}
 
-	private readonly handleClick = (event: MouseEvent): void => {
-		if (!isPrimaryUnmodifiedClick(event)) return;
-		const target = event.target;
+	private readonly handleClickIntent = (intent: InputClickIntent): void => {
+		if (!intent.isPrimary || intent.isModified || intent.defaultPrevented) return;
+		const target = intent.target;
 		if (!(target instanceof Element)) return;
 		const trigger = target.closest<HTMLElement>(SCROLL_TO_SELECTOR);
 		if (!trigger) return;
@@ -614,15 +590,13 @@ class Scroll extends BaseModule {
 		const element = resolveTargetElement(selector);
 		if (!element) return;
 
-		event.preventDefault();
+		intent.preventDefault();
 		const offset = Number.parseFloat(trigger.dataset["scrollToOffset"] ?? "0");
 		this.scrollTo(element, {
 			offset: Number.isFinite(offset) ? offset : 0,
 			immediate: trigger.dataset["scrollToImmediate"] !== undefined,
 		});
-		if (samePageUrl?.hash && window.location.hash !== samePageUrl.hash) {
-			history.pushState(null, "", samePageUrl.hash);
-		}
+		if (samePageUrl?.hash) setRouteHash(samePageUrl.hash);
 		focusElement(element);
 	};
 }
@@ -672,18 +646,16 @@ class ScrollAnimator {
 	}
 }
 
-const normalizeWheelDeltaY = (event: WheelEvent): number => {
-	if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * LINE_HEIGHT;
-	if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE)
-		return event.deltaY * window.innerHeight * settings.scroll.pageMultiplier;
-	return event.deltaY;
-};
+const readSmoothWheelDeltaY = (intent: InputWheelIntent): number =>
+	intent.deltaMode === WheelEvent.DOM_DELTA_PAGE
+		? intent.dy * settings.scroll.pageMultiplier
+		: intent.dy;
 
-const shouldUseNativeWheel = (event: WheelEvent, enabled: boolean): boolean => {
-	if (!enabled || event.defaultPrevented) return true;
-	if (event.ctrlKey || event.metaKey || event.shiftKey) return true;
-	if (!(event.target instanceof Element)) return false;
-	return Boolean(event.target.closest(NATIVE_SCROLL_SELECTOR));
+const shouldUseNativeWheel = (intent: InputWheelIntent, enabled: boolean): boolean => {
+	if (!enabled || intent.defaultPrevented) return true;
+	if (intent.ctrlKey || intent.metaKey || intent.shiftKey) return true;
+	if (!(intent.target instanceof Element)) return false;
+	return Boolean(intent.target.closest(NATIVE_SCROLL_SELECTOR));
 };
 
 const splitPair = (value = ""): [string, string] => {

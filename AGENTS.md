@@ -53,6 +53,7 @@
 
 - [`src/app/core/app.ts`](src/app/core/app.ts): owns the single visible `requestAnimationFrame` loop and module order.
 - [`src/app/core/module.ts`](src/app/core/module.ts): defines explicit lifecycle hooks: `preInit`, `init`, `resize`, `update`, `dispose`.
+- [`src/app/systems/input.ts`](src/app/systems/input.ts): owns browser input listeners, passive input snapshots, and cancellable input intent channels.
 - [`src/app/systems/scroll.ts`](src/app/systems/scroll.ts): native-backed smooth wheel enhancement, anchors, and `[data-scroll]` ranges.
 - [`src/app/systems/motion.ts`](src/app/systems/motion.ts): small cancellable motion scheduler for route and future page choreography.
 - [`src/app/systems/theme.ts`](src/app/systems/theme.ts): applies theme settings, CSS variables, `color-scheme`, and runtime theme metadata.
@@ -65,6 +66,7 @@
 
 - Runtime behavior is wired through `data-*` attributes, not framework component state.
 - `update` is the single public per-frame hook; modules should internally keep layout reads before DOM/style writes.
+- Input owns input event listeners; other modules consume `frame.input` or subscribe to input intent channels instead of binding duplicate pointer, wheel, keyboard, or click listeners.
 - Event handlers collect state and schedule work; they should not measure layout or write DOM state directly.
 - The loop may stay active while the document is visible; optimize inactive modules by making them cheap.
 - Native scroll is the fallback; smooth scrolling is an enhancement gated by settings, device, network, pointer, and motion profile.

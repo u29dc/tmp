@@ -101,6 +101,13 @@ class Route extends BaseModule {
 		return () => this.abortHandlers.delete(handler);
 	}
 
+	setHash(hash: string): void {
+		const nextHash = hash.startsWith("#") ? hash : `#${hash}`;
+		if (nextHash === "#") return;
+		if (window.location.hash !== nextHash) history.pushState(null, "", nextHash);
+		this.refreshFromWindow();
+	}
+
 	private bindAstro(): void {
 		if (this.initialized || typeof document === "undefined") return;
 		this.initialized = true;
@@ -236,3 +243,4 @@ export const onRouteBeforeSwap = (handler: SwapHandler): (() => void) =>
 export const onRouteAfterSwap = (handler: RouteHandler): (() => void) => route.onAfterSwap(handler);
 export const onRouteLoad = (handler: RouteHandler): (() => void) => route.onLoad(handler);
 export const onRouteAbort = (handler: RouteHandler): (() => void) => route.onAbort(handler);
+export const setRouteHash = (hash: string): void => route.setHash(hash);
