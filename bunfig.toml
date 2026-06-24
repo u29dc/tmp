@@ -1,2 +1,2 @@
-[run]
-bun = true
+[install]
+minimumReleaseAge = 0

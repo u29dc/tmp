@@ -1,3 +1,5 @@
+import cloudflare from "@astrojs/cloudflare";
+import mdx from "@astrojs/mdx";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 
@@ -5,6 +7,11 @@ const site = process.env["SITE_URL"] ?? "https://example.com";
 
 export default defineConfig({
 	site,
+	adapter: cloudflare({
+		imageService: "passthrough",
+		prerenderEnvironment: "node",
+	}),
+	integrations: [mdx()],
 	output: "static",
 	compressHTML: true,
 	prerenderConflictBehavior: "error",
