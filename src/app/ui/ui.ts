@@ -17,16 +17,21 @@ class UI extends BaseModule {
 		link.init(context);
 	}
 
+	override refresh(context: Context): void {
+		super.refresh(context);
+		button.refresh(context);
+		link.refresh(context);
+	}
+
 	override resize(context: Context): void {
 		super.resize(context);
 		button.resize(context);
 		link.resize(context);
 	}
 
-	override update(frame: Frame): void {
+	override update(frame: Frame): boolean | void {
 		super.update(frame);
-		button.update(frame);
-		link.update(frame);
+		return button.update(frame) === true || link.update(frame) === true;
 	}
 
 	override dispose(): void {

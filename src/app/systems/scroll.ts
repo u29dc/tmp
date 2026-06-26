@@ -101,7 +101,6 @@ class Scroll extends BaseModule {
 		this.latestProfile = context.profile;
 		this.applyCapability(context.profile);
 		window.addEventListener("scroll", this.handleScroll, { passive: true });
-		this.resizeObserver = this.createResizeObserver();
 		this.scan();
 		this.addCleanup(onInputWheelIntent(this.handleWheelIntent));
 		this.addCleanup(onInputClickIntent(this.handleClickIntent));
@@ -117,16 +116,23 @@ class Scroll extends BaseModule {
 		this.syncFromWindow("route", performance.now());
 	}
 
+	override refresh(context: Context): void {
+		super.refresh(context);
+		this.scan();
+		this.requestFrame("scroll:refresh");
+	}
+
 	override resize(context: Context): void {
 		super.resize(context);
 		this.needsMeasure = true;
-		this.scan();
 		this.state.limit = this.measureLimit();
 		this.clampSmoothModelToLimit();
+		this.requestFrame("scroll:resize");
 	}
 
-	override update(frame: Frame): void {
+	override update(frame: Frame): boolean | void {
 		super.update(frame);
+		const hadPendingWrite = this.writeY !== undefined;
 		this.refreshCapability(frame.profile);
 		if (
 			this.smoothActive &&
@@ -146,7 +152,14 @@ class Scroll extends BaseModule {
 		if (stateChanged || this.needsMeasure) this.writeRootState();
 		this.writeElements(frame, stateChanged);
 		this.writeScrollPosition();
+		const needsNextFrame =
+			this.smoothActive ||
+			hadPendingWrite ||
+			this.needsMeasure ||
+			this.state.isScrolling ||
+			this.hasActiveScrollWork();
 		this.needsMeasure = false;
+		return needsNextFrame;
 	}
 
 	override dispose(): void {
@@ -175,6 +188,7 @@ class Scroll extends BaseModule {
 			isSmoothEnabled: this.smoothEnabled,
 		};
 		this.writeRootState();
+		this.requestFrame("scroll:settings");
 	}
 
 	scrollTo(target: number | string | HTMLElement, options: ScrollToOptions = {}): void {
@@ -187,19 +201,24 @@ class Scroll extends BaseModule {
 			top: clamp(y, 0, this.state.limit),
 			behavior: options.immediate || reducedMotion ? "auto" : "smooth",
 		});
+		this.requestFrame("scroll:to");
 	}
 
 	private scan(root: ParentNode = document): void {
 		this.observer?.disconnect();
 		this.observer = this.createIntersectionObserver();
+		this.resizeObserver?.disconnect();
+		this.resizeObserver = this.createResizeObserver();
 		this.elements = Array.from(root.querySelectorAll<HTMLElement>(SCROLL_SELECTOR)).map(
 			(element) => this.createElement(element),
 		);
 		for (const item of this.elements) {
 			if (this.observer) this.observer.observe(item.element);
 			else item.interactive = true;
+			this.resizeObserver?.observe(item.element);
 		}
 		this.needsMeasure = true;
+		this.requestFrame("scroll:scan");
 	}
 
 	private createElement(element: HTMLElement): ScrollElement {
@@ -244,6 +263,7 @@ class Scroll extends BaseModule {
 					if (!item) continue;
 					item.interactive = entry.isIntersecting;
 				}
+				this.requestFrame("scroll:intersection");
 			},
 			{ rootMargin: INTERACTIVE_ROOT_MARGIN },
 		);
@@ -253,6 +273,7 @@ class Scroll extends BaseModule {
 		if (!("ResizeObserver" in window)) return undefined;
 		const observer = new ResizeObserver(() => {
 			this.needsMeasure = true;
+			this.requestFrame("scroll:resize-observer");
 		});
 		observer.observe(document.documentElement);
 		if (document.body) observer.observe(document.body);
@@ -272,6 +293,7 @@ class Scroll extends BaseModule {
 		this.smoothEnabled = enabled;
 		setDataset(document.documentElement, "smoothScroll", enabled ? "enhanced" : "native");
 		if (changed && !enabled) this.syncFromWindow("native", performance.now());
+		if (changed) this.requestFrame("scroll:capability");
 	}
 
 	private shouldEnhance(profile: DeviceProfile): boolean {
@@ -493,6 +515,15 @@ class Scroll extends BaseModule {
 		window.scrollTo(0, y);
 	}
 
+	private hasActiveScrollWork(): boolean {
+		return (
+			this.state.isScrolling &&
+			this.elements.some(
+				(item) => item.interactive && item.speed !== null && item.range.isActive,
+			)
+		);
+	}
+
 	private writeElementTransform(item: ScrollElement, frame: Frame): void {
 		if (item.speed === null) return;
 		const allowTransform =
@@ -533,6 +564,7 @@ class Scroll extends BaseModule {
 		if (this.programmatic) {
 			if (Math.abs(window.scrollY - this.state.animated) > 2) {
 				this.syncFromWindow("native", performance.now());
+				this.requestFrame("scroll:native-interrupt");
 				return;
 			}
 			this.programmatic = false;
@@ -540,6 +572,7 @@ class Scroll extends BaseModule {
 		}
 		this.stopSmooth();
 		this.source = "native";
+		this.requestFrame("scroll:native");
 	};
 
 	private readonly handleWheelIntent = (intent: InputWheelIntent): void => {
@@ -547,6 +580,7 @@ class Scroll extends BaseModule {
 		if (shouldUseNativeWheel(intent, this.smoothEnabled)) return;
 		intent.preventDefault();
 		this.startSmoothScroll(readSmoothWheelDeltaY(intent) * settings.scroll.wheelMultiplier);
+		this.requestFrame("scroll:wheel");
 	};
 
 	private startSmoothScroll(deltaY: number): void {
@@ -559,6 +593,7 @@ class Scroll extends BaseModule {
 		this.smoothTarget = clamp(this.smoothTarget + deltaY, 0, this.state.limit);
 		this.smoothActive = true;
 		this.source = "wheel";
+		this.requestFrame("scroll:smooth");
 	}
 
 	private stopSmooth(): void {

@@ -198,11 +198,20 @@ class Input extends BaseModule {
 		};
 	}
 
-	private readonly handlePointerMove = (event: PointerEvent): void => this.updatePointer(event);
-	private readonly handlePointerDown = (event: PointerEvent): void =>
+	private readonly handlePointerMove = (event: PointerEvent): void => {
+		this.updatePointer(event);
+		this.requestFrame("input:pointer");
+	};
+
+	private readonly handlePointerDown = (event: PointerEvent): void => {
 		this.updatePointer(event, { pressed: true });
-	private readonly handlePointerUp = (event: PointerEvent): void =>
+		this.requestFrame("input:pointer");
+	};
+
+	private readonly handlePointerUp = (event: PointerEvent): void => {
 		this.updatePointer(event, { released: true });
+		this.requestFrame("input:pointer");
+	};
 
 	private readonly handleWheel = (event: WheelEvent): void => {
 		const dx = normalizeWheelDelta(event.deltaX, event.deltaMode, window.innerWidth);
@@ -217,6 +226,7 @@ class Input extends BaseModule {
 			},
 		};
 		this.emitWheelIntent(event, dx, dy);
+		this.requestFrame("input:wheel");
 	};
 
 	private readonly handleKeyDown = (event: KeyboardEvent): void => {
@@ -230,6 +240,7 @@ class Input extends BaseModule {
 				activeKeys: Array.from(this.activeKeys),
 			},
 		};
+		this.requestFrame("input:keyboard");
 	};
 
 	private readonly handleKeyUp = (event: KeyboardEvent): void => {
@@ -243,11 +254,13 @@ class Input extends BaseModule {
 				activeKeys: Array.from(this.activeKeys),
 			},
 		};
+		this.requestFrame("input:keyboard");
 	};
 
 	private readonly handleClick = (event: MouseEvent): void => {
 		const intent = createClickIntent(event);
 		for (const handler of this.clickHandlers) handler(intent);
+		this.requestFrame("input:click");
 	};
 
 	private emitWheelIntent(event: WheelEvent, dx: number, dy: number): void {

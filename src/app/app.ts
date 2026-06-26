@@ -11,27 +11,22 @@ import { ui } from "@/app/ui/ui";
 
 applyQuerySettings();
 
-const app = new App(
-	{
-		device,
-		theme,
-		route,
-		input,
-		scroll,
-		motion,
-		performance: performanceMonitor,
-		ui,
+const modules = [device, theme, route, input, scroll, motion, performanceMonitor, ui] as const;
+
+const app = new App(modules, {
+	getInput: getInputState,
+	getProfile: getDeviceProfile,
+	getRoute: getRouteState,
+	getScroll: getScrollState,
+	beforeFrame: (frame) => performanceMonitor.beginFrame(frame),
+	afterFrame: (frame) => {
+		input.postUpdate(frame);
+		performanceMonitor.endFrame(frame);
 	},
-	{
-		getInput: getInputState,
-		getProfile: getDeviceProfile,
-		getRoute: getRouteState,
-		getScroll: getScrollState,
-	},
-);
+});
 
 app.start();
-onRouteAfterSwap(() => app.refreshPage());
+onRouteAfterSwap(() => app.refreshPage("route:after-swap"));
 
 if (import.meta.env.DEV) {
 	void import("@/app/dev/dev").then(({ initDevTools }) => {

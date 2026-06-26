@@ -1,5 +1,6 @@
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
+import { delayTimer, setTimer, type TimerHandle } from "@/app/core/timer";
 import { removeDataset, setDataset } from "@/app/utils/dom";
 import {
 	onRouteAbort,
@@ -49,44 +50,39 @@ class Motion extends BaseModule {
 		super.dispose();
 	}
 
-	nextFrame(name: string, callback: () => void): MotionHandle {
-		let frame = 0;
-		let cancelled = false;
-		const handle = this.createHandle(name, () => {
-			cancelled = true;
-			if (frame) cancelAnimationFrame(frame);
+	queueFrame(name: string, callback: () => void): MotionHandle {
+		let handle: MotionHandle | undefined;
+		const cancelFrame = this.nextFrame(`motion.${name}`, () => {
+			if (handle) this.handles.delete(handle);
+			callback();
 		});
-		frame = requestAnimationFrame(() => {
-			this.handles.delete(handle);
-			if (!cancelled) callback();
-		});
+		handle = this.createHandle(name, cancelFrame);
 		return handle;
 	}
 
 	delay(name: string, milliseconds: number, callback?: () => void): MotionHandle {
-		let timer = 0;
-		let cancelled = false;
-		const handle = this.createHandle(name, () => {
-			cancelled = true;
-			if (timer) window.clearTimeout(timer);
-		});
-		timer = window.setTimeout(() => {
-			this.handles.delete(handle);
-			if (cancelled) return;
+		let handle: MotionHandle | undefined;
+		let timer: TimerHandle | undefined;
+		timer = setTimer(name, this.readDuration(milliseconds), () => {
+			if (handle) this.handles.delete(handle);
 			callback?.();
-		}, this.readDuration(milliseconds));
+		});
+		handle = this.createHandle(name, () => timer?.cancel());
 		return handle;
 	}
 
 	runSequence(name: string, steps: MotionStep[]): MotionHandle {
 		let cancelled = false;
+		const controller = new AbortController();
 		const handle = this.createHandle(name, () => {
 			cancelled = true;
+			controller.abort();
 		});
 		void (async () => {
 			for (const step of steps) {
 				if (cancelled) break;
-				if (step.delayMs && step.delayMs > 0) await this.wait(step.delayMs);
+				if (step.delayMs && step.delayMs > 0)
+					await this.wait(step.delayMs, controller.signal);
 				if (cancelled) break;
 				await step.run?.();
 			}
@@ -121,17 +117,7 @@ class Motion extends BaseModule {
 	private wait(milliseconds: number, signal?: AbortSignal): Promise<void> {
 		const duration = this.readDuration(milliseconds);
 		if (duration <= 0 || signal?.aborted) return Promise.resolve();
-		return new Promise((resolve) => {
-			const timer = window.setTimeout(() => {
-				signal?.removeEventListener("abort", abort);
-				resolve();
-			}, duration);
-			const abort = (): void => {
-				window.clearTimeout(timer);
-				resolve();
-			};
-			signal?.addEventListener("abort", abort, { once: true });
-		});
+		return delayTimer("motion.wait", duration, signal);
 	}
 
 	private createHandle(name: string, cancelCallback: () => void): MotionHandle {
@@ -176,7 +162,7 @@ class Motion extends BaseModule {
 		const root = document.documentElement;
 		setDataset(root, "pageState", "entering");
 		setDataset(root, "routeMotion", "entering");
-		this.routeHandle = this.nextFrame("route.enter", () => {
+		this.routeHandle = this.queueFrame("route.enter", () => {
 			this.routeHandle = this.delay(
 				"route.enter.complete",
 				settings.motion.routeEnterMs,
@@ -208,7 +194,7 @@ class Motion extends BaseModule {
 
 export const motion = new Motion();
 export const nextMotionFrame = (name: string, callback: () => void): MotionHandle =>
-	motion.nextFrame(name, callback);
+	motion.queueFrame(name, callback);
 export const delayMotion = (
 	name: string,
 	milliseconds: number,

@@ -69,6 +69,7 @@ class Route extends BaseModule {
 		this.afterSwapHandlers.clear();
 		this.loadHandlers.clear();
 		this.abortHandlers.clear();
+		this.initialized = false;
 		super.dispose();
 	}
 
@@ -136,6 +137,7 @@ class Route extends BaseModule {
 			generation: this.state.generation + 1,
 		};
 		this.applyToDocument();
+		this.requestFrame(`route:${pageState}`);
 	}
 
 	private applyToDocument(): void {
@@ -152,6 +154,7 @@ class Route extends BaseModule {
 			generation: this.state.generation + 1,
 		};
 		this.applyToDocument();
+		this.requestFrame("route:url");
 	};
 
 	private readonly handleBeforePreparation = (event: Event): void => {
@@ -205,6 +208,7 @@ class Route extends BaseModule {
 		delete this.state.to;
 		this.applyToDocument();
 		for (const handler of this.afterSwapHandlers) handler();
+		this.requestFrame("route:after-swap");
 	};
 
 	private readonly handlePageLoad = (): void => {
@@ -217,6 +221,7 @@ class Route extends BaseModule {
 		};
 		this.applyToDocument();
 		for (const handler of this.loadHandlers) handler();
+		this.requestFrame("route:page-load");
 		this.setPageState("idle");
 	};
 

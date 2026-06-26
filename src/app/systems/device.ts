@@ -10,11 +10,13 @@ import type {
 } from "@/app/core/state";
 
 type NavigatorWithSignals = Navigator & {
-	connection?: {
-		saveData?: boolean;
-		effectiveType?: string;
-	};
+	connection?: NetworkInformationLike;
 	deviceMemory?: number;
+};
+
+type NetworkInformationLike = EventTarget & {
+	saveData?: boolean;
+	effectiveType?: string;
 };
 
 const isBrowser = (): boolean => typeof window !== "undefined" && typeof document !== "undefined";
@@ -47,14 +49,15 @@ class Device extends BaseModule {
 	private profile = createDefaultProfile();
 	private generation = 0;
 	private initialized = false;
-	private reduceQuery?: MediaQueryList;
-	private coarseQuery?: MediaQueryList;
-	private fineQuery?: MediaQueryList;
-	private hoverQuery?: MediaQueryList;
+	private reduceQuery: MediaQueryList | undefined;
+	private coarseQuery: MediaQueryList | undefined;
+	private fineQuery: MediaQueryList | undefined;
+	private hoverQuery: MediaQueryList | undefined;
+	private connection: NetworkInformationLike | undefined;
 
 	override preInit(context: Context): void {
 		super.preInit(context);
-		this.refresh();
+		this.refreshProfile();
 		this.bind();
 	}
 
@@ -64,7 +67,7 @@ class Device extends BaseModule {
 
 	override resize(context: Context): void {
 		super.resize(context);
-		this.refresh();
+		this.refreshProfile();
 	}
 
 	override update(frame: Frame): void {
@@ -73,6 +76,12 @@ class Device extends BaseModule {
 
 	override dispose(): void {
 		super.dispose();
+		this.initialized = false;
+		this.connection = undefined;
+		this.reduceQuery = undefined;
+		this.coarseQuery = undefined;
+		this.fineQuery = undefined;
+		this.hoverQuery = undefined;
 	}
 
 	getProfile(): DeviceProfile {
@@ -86,14 +95,24 @@ class Device extends BaseModule {
 		this.coarseQuery = window.matchMedia("(hover: none), (pointer: coarse)");
 		this.fineQuery = window.matchMedia("(hover: hover), (pointer: fine)");
 		this.hoverQuery = window.matchMedia("(hover: hover)");
-		const refresh = (): void => this.refresh();
+		const refresh = (): void => this.refreshProfile();
 		for (const query of [this.reduceQuery, this.coarseQuery, this.fineQuery, this.hoverQuery]) {
-			query.addEventListener("change", refresh);
-			this.addCleanup(() => query.removeEventListener("change", refresh));
+			this.addCleanup(addMediaQueryListener(query, refresh));
 		}
+		this.connection = (navigator as NavigatorWithSignals).connection;
+		this.connection?.addEventListener?.("change", this.handleConnectionChange);
+		window.addEventListener("pageshow", this.handlePageShow);
+		document.addEventListener("visibilitychange", this.handleVisibilityChange);
+		this.addCleanup(() =>
+			this.connection?.removeEventListener?.("change", this.handleConnectionChange),
+		);
+		this.addCleanup(() => window.removeEventListener("pageshow", this.handlePageShow));
+		this.addCleanup(() =>
+			document.removeEventListener("visibilitychange", this.handleVisibilityChange),
+		);
 	}
 
-	private refresh(): void {
+	private refreshProfile(): void {
 		if (!isBrowser()) return;
 		this.generation += 1;
 		const nav = navigator as NavigatorWithSignals;
@@ -152,8 +171,35 @@ class Device extends BaseModule {
 		root.dataset["pointerProfile"] = pointerProfile;
 		root.dataset["displayProfile"] = displayProfile;
 		root.dataset["networkProfile"] = networkProfile;
+		this.requestFrame("device:profile");
 	}
+
+	private readonly handleConnectionChange = (): void => {
+		this.refreshProfile();
+	};
+
+	private readonly handlePageShow = (event: PageTransitionEvent): void => {
+		if (event.persisted) this.refreshProfile();
+	};
+
+	private readonly handleVisibilityChange = (): void => {
+		if (!document.hidden) this.refreshProfile();
+	};
 }
+
+const addMediaQueryListener = (query: MediaQueryList, callback: () => void): (() => void) => {
+	if (typeof query.addEventListener === "function") {
+		query.addEventListener("change", callback);
+		return () => query.removeEventListener("change", callback);
+	}
+
+	const legacyQuery = query as unknown as {
+		addListener?: (listener: () => void) => void;
+		removeListener?: (listener: () => void) => void;
+	};
+	legacyQuery.addListener?.(callback);
+	return () => legacyQuery.removeListener?.(callback);
+};
 
 const readDisplayProfile = (width: number): DisplayProfile => {
 	if (width < settings.device.smallWidth) return "small";

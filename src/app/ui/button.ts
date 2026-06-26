@@ -14,17 +14,23 @@ class Button extends Component {
 		super.init(context);
 	}
 
-	override resize(context: Context): void {
-		super.resize(context);
+	override refresh(context: Context): void {
+		super.refresh(context);
 		this.scan();
 	}
 
-	override update(frame: Frame): void {
+	override resize(context: Context): void {
+		super.resize(context);
+	}
+
+	override update(frame: Frame): boolean | void {
 		super.update(frame);
+		let needsFrame = false;
 		for (const state of this.states.values()) {
-			this.updateStateFromInput(frame, state);
+			needsFrame = this.updateStateFromInput(frame, state) || needsFrame;
 			this.writeInteractiveState(state);
 		}
+		return needsFrame;
 	}
 
 	override dispose(): void {
