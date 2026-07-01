@@ -20,6 +20,13 @@ const timers = new Map<number, TimerEntry>();
 let nextTimerId = 0;
 let scheduleTimerCallback: TimerScheduler = (_name, callback) => callback();
 
+const inactiveTimer = (name: string): TimerHandle => ({
+	id: 0,
+	name,
+	cancel: () => {},
+	active: () => false,
+});
+
 export const setTimerScheduler = (scheduler: TimerScheduler): (() => void) => {
 	scheduleTimerCallback = scheduler;
 	return () => {
@@ -35,6 +42,8 @@ export const setTimer = (
 	callback: () => void,
 	options?: { signal?: AbortSignal },
 ): TimerHandle => {
+	if (options?.signal?.aborted) return inactiveTimer(name);
+
 	nextTimerId += 1;
 	const id = nextTimerId;
 	const dueAt = performance.now() + Math.max(0, delayMs);

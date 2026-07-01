@@ -2,8 +2,9 @@ import cloudflare from "@astrojs/cloudflare";
 import mdx from "@astrojs/mdx";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
+import { resolveSiteUrl } from "./src/lib/site-url";
 
-const site = process.env["SITE_URL"] ?? "https://example.com";
+const site = resolveSiteUrl(process.env["SITE_URL"]);
 
 export default defineConfig({
 	site,

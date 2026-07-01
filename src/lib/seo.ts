@@ -47,5 +47,5 @@ export const escapeXml = (value: string): string =>
 export const sortFeedItems = (items: readonly FeedItem[]): FeedItem[] =>
 	[...items].sort((a, b) => b.date.getTime() - a.date.getTime());
 
-export const latestFeedDate = (items: readonly FeedItem[], fallback = new Date()): Date =>
+export const latestFeedDate = (items: readonly FeedItem[], fallback = SITE.updatedAt): Date =>
 	sortFeedItems(items)[0]?.date ?? fallback;

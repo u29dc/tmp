@@ -1,9 +1,13 @@
+import type { SiteImage } from "@/data/media";
+import { resolveSiteUrl } from "@/lib/site-url";
+
 export type SiteConfig = {
 	name: string;
 	shortName: string;
 	title: string;
 	description: string;
 	url: string;
+	updatedAt: Date;
 	lang: string;
 	locale: string;
 	creator: string;
@@ -13,13 +17,7 @@ export type SiteConfig = {
 	backgroundColor: string;
 	faviconIcoPath: `/${string}`;
 	appleTouchIconPath: `/${string}`;
-	ogImage: {
-		path: `/${string}`;
-		type: string;
-		width: number;
-		height: number;
-		alt: string;
-	};
+	ogImage: SiteImage;
 	icons: {
 		src: `/${string}`;
 		sizes: string;
@@ -33,37 +31,13 @@ export type SiteConfig = {
 	};
 };
 
-const normalizeSiteUrl = (value: string): string => {
-	const trimmed = value.trim();
-	if (!trimmed) throw new Error("SITE_URL cannot be empty");
-
-	let url: URL;
-	try {
-		url = new URL(trimmed);
-	} catch {
-		throw new Error("SITE_URL must be an absolute URL");
-	}
-
-	if (url.protocol !== "https:" && url.protocol !== "http:") {
-		throw new Error("SITE_URL must use http or https");
-	}
-
-	if (url.username || url.password || url.search || url.hash) {
-		throw new Error("SITE_URL must not include credentials, query, or hash");
-	}
-
-	url.pathname = url.pathname.replace(/\/+$/, "") || "/";
-	return url.toString().replace(/\/$/, "");
-};
-
 export const SITE: SiteConfig = {
 	name: "Website Template",
 	shortName: "Template",
 	title: "Website Template",
 	description: "Placeholder architecture scaffold.",
-	url: normalizeSiteUrl(
-		String(import.meta.env.SITE ?? import.meta.env.SITE_URL ?? "https://example.com"),
-	),
+	url: resolveSiteUrl(import.meta.env.SITE_URL),
+	updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 	lang: "en-GB",
 	locale: "en_GB",
 	creator: "",

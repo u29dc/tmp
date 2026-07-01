@@ -79,14 +79,17 @@ class Motion extends BaseModule {
 			controller.abort();
 		});
 		void (async () => {
-			for (const step of steps) {
-				if (cancelled) break;
-				if (step.delayMs && step.delayMs > 0)
-					await this.wait(step.delayMs, controller.signal);
-				if (cancelled) break;
-				await step.run?.();
+			try {
+				for (const step of steps) {
+					if (cancelled) break;
+					if (step.delayMs && step.delayMs > 0)
+						await this.wait(step.delayMs, controller.signal);
+					if (cancelled) break;
+					await step.run?.();
+				}
+			} finally {
+				this.handles.delete(handle);
 			}
-			this.handles.delete(handle);
 		})();
 		return handle;
 	}

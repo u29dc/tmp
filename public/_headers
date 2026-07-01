@@ -26,3 +26,6 @@
 
 /about
   X-Robots-Tag: noindex, nofollow
+
+/about/
+  X-Robots-Tag: noindex, nofollow

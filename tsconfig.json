@@ -2,12 +2,11 @@
 	"extends": "astro/tsconfigs/strict",
 	"compilerOptions": {
 		"allowJs": false,
-		"baseUrl": ".",
 		"exactOptionalPropertyTypes": true,
 		"moduleResolution": "bundler",
 		"noUncheckedIndexedAccess": true,
 		"paths": {
-			"@/*": ["src/*"]
+			"@/*": ["./src/*"]
 		},
 		"types": ["astro/client", "node"]
 	},

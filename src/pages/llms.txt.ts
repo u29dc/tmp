@@ -1,8 +1,10 @@
+import { PUBLIC_PAGES } from "@/data/pages";
 import { SITE } from "@/data/site";
-import { SITE_ROUTES } from "@/data/routes";
 import { absoluteUrl } from "@/lib/seo";
 
-const routeLines = SITE_ROUTES.map((route) => `- ${absoluteUrl(route.path)}`).join("\n");
+const routeLines = PUBLIC_PAGES.map((page) => `- ${page.title}: ${absoluteUrl(page.path)}`).join(
+	"\n",
+);
 
 const body = [
 	`# ${SITE.name}`,
