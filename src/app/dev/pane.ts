@@ -1,4 +1,4 @@
-import { resetSettings, settings, type ThemeColors } from "@/app/core/settings";
+import { resetSettings, SETTING_BOUNDS, settings, type ThemeColors } from "@/app/core/settings";
 import { applyScrollSettings } from "@/app/systems/scroll";
 import { applyThemeSettings, onThemeChange } from "@/app/systems/theme";
 import { setDataset } from "@/app/utils/dom";
@@ -72,27 +72,19 @@ const addInteractionControls = (pane: Pane): void => {
 	const folder = pane.addFolder({ title: "Interaction", expanded: true });
 	folder.addBinding(settings.interaction, "ratioLambda", {
 		label: "Hover lambda",
-		min: 1,
-		max: 40,
-		step: 0.1,
+		...SETTING_BOUNDS.interaction.ratioLambda,
 	});
 	folder.addBinding(settings.interaction, "pressLambda", {
 		label: "Press lambda",
-		min: 1,
-		max: 60,
-		step: 0.1,
+		...SETTING_BOUNDS.interaction.pressLambda,
 	});
 	folder.addBinding(settings.interaction, "pressScale", {
 		label: "Press scale",
-		min: 0.9,
-		max: 1,
-		step: 0.001,
+		...SETTING_BOUNDS.interaction.pressScale,
 	});
 	folder.addBinding(settings.interaction, "settleEpsilon", {
 		label: "Settle epsilon",
-		min: 0.0001,
-		max: 0.02,
-		step: 0.0001,
+		...SETTING_BOUNDS.interaction.settleEpsilon,
 	});
 };
 
@@ -101,27 +93,19 @@ const addScrollControls = (pane: Pane): void => {
 	folder.addBinding(settings.scroll, "smoothEnabled", { label: "Smooth" });
 	folder.addBinding(settings.scroll, "lambda", {
 		label: "Lambda",
-		min: 1,
-		max: 40,
-		step: 0.1,
+		...SETTING_BOUNDS.scroll.lambda,
 	});
 	folder.addBinding(settings.scroll, "settlePx", {
 		label: "Settle px",
-		min: 0.01,
-		max: 4,
-		step: 0.01,
+		...SETTING_BOUNDS.scroll.settlePx,
 	});
 	folder.addBinding(settings.scroll, "wheelMultiplier", {
 		label: "Wheel",
-		min: 0.25,
-		max: 2.5,
-		step: 0.01,
+		...SETTING_BOUNDS.scroll.wheelMultiplier,
 	});
 	folder.addBinding(settings.scroll, "pageMultiplier", {
 		label: "Page",
-		min: 0.25,
-		max: 1.5,
-		step: 0.01,
+		...SETTING_BOUNDS.scroll.pageMultiplier,
 	});
 };
 
@@ -129,21 +113,15 @@ const addMotionControls = (pane: Pane): void => {
 	const folder = pane.addFolder({ title: "Motion", expanded: false });
 	folder.addBinding(settings.motion, "routeExitMs", {
 		label: "Route exit",
-		min: 0,
-		max: 1200,
-		step: 10,
+		...SETTING_BOUNDS.motion.routeExitMs,
 	});
 	folder.addBinding(settings.motion, "routeEnterMs", {
 		label: "Route enter",
-		min: 0,
-		max: 1200,
-		step: 10,
+		...SETTING_BOUNDS.motion.routeEnterMs,
 	});
 	folder.addBinding(settings.motion, "routeBufferMs", {
 		label: "Route buffer",
-		min: 0,
-		max: 300,
-		step: 10,
+		...SETTING_BOUNDS.motion.routeBufferMs,
 	});
 };
 

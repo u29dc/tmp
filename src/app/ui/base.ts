@@ -164,8 +164,13 @@ export abstract class Component extends BaseModule {
 const isDisabled = (element: HTMLElement): boolean =>
 	element.matches(":disabled, [aria-disabled='true']");
 
-const isCurrent = (element: HTMLElement): boolean =>
-	element.hasAttribute("aria-current") || element.dataset["uiCurrent"] !== undefined;
+const isCurrent = (element: HTMLElement): boolean => {
+	const ariaCurrent = element.getAttribute("aria-current");
+	return (
+		element.dataset["uiCurrent"] !== undefined ||
+		(ariaCurrent !== null && ariaCurrent !== "false")
+	);
+};
 
 const readUiState = (state: InteractiveState): string => {
 	if (state.isDisabled) return "disabled";

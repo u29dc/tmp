@@ -19,7 +19,7 @@
 		"util:format": "bunx oxfmt . --write --no-error-on-unmatched-pattern && bunx oxfmt . --check --no-error-on-unmatched-pattern",
 		"util:lint": "bunx oxlint src scripts astro.config.ts commitlint.config.js lint-staged.config.js --fix --deny-warnings --no-error-on-unmatched-pattern",
 		"util:minify": "bun scripts/minify.ts",
-		"util:types": "bun run astro:check",
+		"util:types": "bun run astro:check && bunx tsc --noEmit --project tsconfig.scripts.json",
 		"util:check": "bun run util:format && bun run util:lint && bun run util:types && bun run build"
 	},
 	"devDependencies": {

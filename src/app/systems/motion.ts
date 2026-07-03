@@ -87,6 +87,10 @@ class Motion extends BaseModule {
 					if (cancelled) break;
 					await step.run?.();
 				}
+			} catch (error) {
+				if (!cancelled && !controller.signal.aborted) {
+					this.reportError(`motion.${name}`, error);
+				}
 			} finally {
 				this.handles.delete(handle);
 			}

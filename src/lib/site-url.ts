@@ -19,7 +19,13 @@ export const normalizeSiteUrl = (value: string): string => {
 		throw new Error("SITE_URL must not include credentials, query, or hash");
 	}
 
-	url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+	const pathname = url.pathname.replace(/\/+$/, "") || "/";
+	if (pathname !== "/") {
+		throw new Error(
+			"SITE_URL must not include a path; configure Astro base separately if subpath deploy support is added",
+		);
+	}
+	url.pathname = "/";
 	return url.toString().replace(/\/$/, "");
 };
 

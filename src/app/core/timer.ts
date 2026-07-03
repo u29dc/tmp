@@ -12,9 +12,12 @@ type TimerEntry = {
 	timeout: number;
 	callback: () => void;
 	cancelled: boolean;
+	cancelScheduled?: () => void;
+	removeAbortListener?: () => void;
+	onCancel?: () => void;
 };
 
-type TimerScheduler = (name: string, callback: () => void) => void;
+type TimerScheduler = (name: string, callback: () => void) => void | (() => void);
 
 const timers = new Map<number, TimerEntry>();
 let nextTimerId = 0;
@@ -26,6 +29,16 @@ const inactiveTimer = (name: string): TimerHandle => ({
 	cancel: () => {},
 	active: () => false,
 });
+
+const cancelTimer = (timer: TimerEntry): void => {
+	if (timer.cancelled) return;
+	timer.cancelled = true;
+	window.clearTimeout(timer.timeout);
+	timer.cancelScheduled?.();
+	timer.removeAbortListener?.();
+	timers.delete(timer.id);
+	timer.onCancel?.();
+};
 
 export const setTimerScheduler = (scheduler: TimerScheduler): (() => void) => {
 	scheduleTimerCallback = scheduler;
@@ -40,41 +53,50 @@ export const setTimer = (
 	name: string,
 	delayMs: number,
 	callback: () => void,
-	options?: { signal?: AbortSignal },
+	options?: { signal?: AbortSignal; onCancel?: () => void },
 ): TimerHandle => {
 	if (options?.signal?.aborted) return inactiveTimer(name);
 
 	nextTimerId += 1;
 	const id = nextTimerId;
 	const dueAt = performance.now() + Math.max(0, delayMs);
+	let entry: TimerEntry;
 
 	const cancel = (): void => {
 		const timer = timers.get(id);
-		if (!timer || timer.cancelled) return;
-		timer.cancelled = true;
-		window.clearTimeout(timer.timeout);
-		timers.delete(id);
-		options?.signal?.removeEventListener("abort", cancel);
+		if (timer) cancelTimer(timer);
 	};
 
 	const timeout = window.setTimeout(
 		() => {
 			const timer = timers.get(id);
 			if (!timer || timer.cancelled) return;
-			timers.delete(id);
-			options?.signal?.removeEventListener("abort", cancel);
-			scheduleTimerCallback(`timer:${name}`, timer.callback);
+			const cancelScheduled = scheduleTimerCallback(`timer:${name}`, () => {
+				const scheduledTimer = timers.get(id);
+				if (!scheduledTimer || scheduledTimer.cancelled) return;
+				scheduledTimer.cancelled = true;
+				scheduledTimer.removeAbortListener?.();
+				timers.delete(id);
+				scheduledTimer.callback();
+			});
+			if (cancelScheduled) timer.cancelScheduled = cancelScheduled;
 		},
 		Math.max(0, delayMs),
 	);
 
-	const entry: TimerEntry = {
+	entry = {
 		id,
 		name,
 		dueAt,
 		timeout,
 		callback,
 		cancelled: false,
+		...(options?.onCancel ? { onCancel: options.onCancel } : {}),
+		...(options?.signal
+			? {
+					removeAbortListener: () => options.signal?.removeEventListener("abort", cancel),
+				}
+			: {}),
 	};
 
 	timers.set(id, entry);
@@ -86,6 +108,10 @@ export const setTimer = (
 		cancel,
 		active: () => timers.has(id) && !entry.cancelled,
 	};
+};
+
+export const cancelRuntimeTimers = (): void => {
+	for (const timer of Array.from(timers.values())) cancelTimer(timer);
 };
 
 export const delayTimer = (name: string, delayMs: number, signal?: AbortSignal): Promise<void> => {
@@ -102,7 +128,9 @@ export const delayTimer = (name: string, delayMs: number, signal?: AbortSignal):
 			resolve();
 		};
 
-		timer = setTimer(name, delayMs, settle);
-		signal?.addEventListener("abort", settle, { once: true });
+		timer = setTimer(name, delayMs, settle, {
+			...(signal ? { signal } : {}),
+			onCancel: settle,
+		});
 	});
 };

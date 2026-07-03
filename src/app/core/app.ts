@@ -1,6 +1,6 @@
 import type { Context, Frame, Module } from "@/app/core/module";
 import type { DeviceProfile, InputState, RouteState, ScrollState } from "@/app/core/state";
-import { setTimerScheduler } from "@/app/core/timer";
+import { cancelRuntimeTimers, setTimerScheduler } from "@/app/core/timer";
 
 export type AppConfig = {
 	getInput: () => InputState;
@@ -78,6 +78,7 @@ export class App {
 		document.removeEventListener("visibilitychange", this.handleVisibilityChange);
 		for (const module of [...this.modules].toReversed()) this.runDispose(module);
 		this.pendingCallbacks.length = 0;
+		cancelRuntimeTimers();
 		this.resetTimerScheduler?.();
 		this.resetTimerScheduler = undefined;
 		this.ticking = false;
@@ -136,6 +137,7 @@ export class App {
 				requestFrame: (reason?: string) => this.requestFrame(reason),
 				nextFrame: (reason: string, callback: () => void) =>
 					this.nextFrame(reason, callback),
+				reportError: (name: string, error: unknown) => this.recordError({ name }, error),
 			},
 			{
 				profile: { get: () => this.config.getProfile() },

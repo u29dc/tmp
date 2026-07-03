@@ -194,11 +194,13 @@ class Scroll extends BaseModule {
 	scrollTo(target: number | string | HTMLElement, options: ScrollToOptions = {}): void {
 		const y = this.resolveTargetY(target, options.offset ?? 0);
 		if (y === null) return;
+		const limit = this.measureLimit();
 		const reducedMotion = this.latestProfile?.reducedMotion ?? false;
 		this.source = "anchor";
+		this.state.limit = limit;
 		this.stopSmooth();
 		window.scrollTo({
-			top: clamp(y, 0, this.state.limit),
+			top: clamp(y, 0, limit),
 			behavior: options.immediate || reducedMotion ? "auto" : "smooth",
 		});
 		this.requestFrame("scroll:to");

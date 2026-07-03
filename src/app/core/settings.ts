@@ -51,6 +51,84 @@ export type AppSettings = {
 
 type QueryValue = string | true;
 
+export type NumberSettingBounds = {
+	min: number;
+	max: number;
+	step?: number;
+};
+
+export const SETTING_BOUNDS = {
+	interaction: {
+		ratioLambda: { min: 1, max: 40, step: 0.1 },
+		pressLambda: { min: 1, max: 60, step: 0.1 },
+		pressScale: { min: 0.9, max: 1, step: 0.001 },
+		settleEpsilon: { min: 0.0001, max: 0.02, step: 0.0001 },
+	},
+	scroll: {
+		lambda: { min: 1, max: 40, step: 0.1 },
+		settlePx: { min: 0.01, max: 4, step: 0.01 },
+		wheelMultiplier: { min: 0.25, max: 2.5, step: 0.01 },
+		pageMultiplier: { min: 0.25, max: 1.5, step: 0.01 },
+	},
+	motion: {
+		routeExitMs: { min: 0, max: 1200, step: 10 },
+		routeEnterMs: { min: 0, max: 1200, step: 10 },
+		routeBufferMs: { min: 0, max: 300, step: 10 },
+	},
+	device: {
+		smallWidth: { min: 320, max: 2560, step: 1 },
+		largeWidth: { min: 640, max: 3840, step: 1 },
+		maxDprHigh: { min: 1, max: 4, step: 0.1 },
+		maxDprMedium: { min: 1, max: 3, step: 0.1 },
+	},
+} as const satisfies {
+	interaction: Record<keyof AppSettings["interaction"], NumberSettingBounds>;
+	scroll: Record<Exclude<keyof AppSettings["scroll"], "smoothEnabled">, NumberSettingBounds>;
+	motion: Record<keyof AppSettings["motion"], NumberSettingBounds>;
+	device: Record<keyof AppSettings["device"], NumberSettingBounds>;
+};
+
+const NUMBER_SETTING_BOUNDS: Record<string, NumberSettingBounds> = {
+	"interaction.ratioLambda": SETTING_BOUNDS.interaction.ratioLambda,
+	"interaction.pressLambda": SETTING_BOUNDS.interaction.pressLambda,
+	"interaction.pressScale": SETTING_BOUNDS.interaction.pressScale,
+	"interaction.settleEpsilon": SETTING_BOUNDS.interaction.settleEpsilon,
+	"scroll.lambda": SETTING_BOUNDS.scroll.lambda,
+	"scroll.settlePx": SETTING_BOUNDS.scroll.settlePx,
+	"scroll.wheelMultiplier": SETTING_BOUNDS.scroll.wheelMultiplier,
+	"scroll.pageMultiplier": SETTING_BOUNDS.scroll.pageMultiplier,
+	"motion.routeExitMs": SETTING_BOUNDS.motion.routeExitMs,
+	"motion.routeEnterMs": SETTING_BOUNDS.motion.routeEnterMs,
+	"motion.routeBufferMs": SETTING_BOUNDS.motion.routeBufferMs,
+	"device.smallWidth": SETTING_BOUNDS.device.smallWidth,
+	"device.largeWidth": SETTING_BOUNDS.device.largeWidth,
+	"device.maxDprHigh": SETTING_BOUNDS.device.maxDprHigh,
+	"device.maxDprMedium": SETTING_BOUNDS.device.maxDprMedium,
+};
+
+const THEME_COLOR_KEYS = new Set([
+	"theme.light.ground",
+	"theme.light.panel",
+	"theme.light.surface",
+	"theme.light.ink",
+	"theme.light.muted",
+	"theme.light.edge",
+	"theme.light.edgeSoft",
+	"theme.light.accent",
+	"theme.light.focus",
+	"theme.dark.ground",
+	"theme.dark.panel",
+	"theme.dark.surface",
+	"theme.dark.ink",
+	"theme.dark.muted",
+	"theme.dark.edge",
+	"theme.dark.edgeSoft",
+	"theme.dark.accent",
+	"theme.dark.focus",
+]);
+
+const NUMBER_PATTERN = /^[+-]?(?:\d+|\d*\.\d+)(?:e[+-]?\d+)?$/i;
+
 export const createDefaultSettings = (): AppSettings => ({
 	debug: {
 		enabled: false,
@@ -114,9 +192,10 @@ export const resetSettings = (): void => {
 	mergeRecords(settings, createDefaultSettings());
 };
 
-export const applyQuerySettings = (search = window.location.search): void => {
-	if (!search || !window.URLSearchParams) return;
-	const entries = new URLSearchParams(search);
+export const applyQuerySettings = (search?: string): void => {
+	const query = search ?? (typeof window === "undefined" ? "" : window.location.search);
+	if (!query || typeof URLSearchParams === "undefined") return;
+	const entries = new URLSearchParams(query);
 	for (const [key, value] of entries.entries()) {
 		setSettingByPath(settings, key, value === "" ? true : value);
 	}
@@ -124,6 +203,7 @@ export const applyQuerySettings = (search = window.location.search): void => {
 
 const setSettingByPath = (target: AppSettings, path: string, value: QueryValue): void => {
 	const parts = path.split(".");
+	if (parts.some((part) => part.length === 0)) return;
 	let cursor: unknown = target;
 	for (const part of parts.slice(0, -1)) {
 		if (!isRecord(cursor) || !(part in cursor)) return;
@@ -133,8 +213,8 @@ const setSettingByPath = (target: AppSettings, path: string, value: QueryValue):
 	if (!key || !isRecord(cursor) || !(key in cursor)) return;
 	const previous = cursor[key];
 	if (typeof previous === "boolean") cursor[key] = readBoolean(value, previous);
-	else if (typeof previous === "number") cursor[key] = readNumber(value, previous);
-	else if (typeof previous === "string") cursor[key] = String(value);
+	else if (typeof previous === "number") cursor[key] = readNumber(path, value, previous, target);
+	else if (typeof previous === "string") cursor[key] = readString(path, value, previous);
 };
 
 const mergeRecords = (target: unknown, source: unknown): void => {
@@ -157,8 +237,45 @@ const readBoolean = (value: QueryValue, fallback: boolean): boolean => {
 	return fallback;
 };
 
-const readNumber = (value: QueryValue, fallback: number): number => {
+const readNumber = (
+	path: string,
+	value: QueryValue,
+	fallback: number,
+	target: AppSettings,
+): number => {
 	if (value === true) return fallback;
-	const parsed = Number.parseFloat(value);
-	return Number.isFinite(parsed) ? parsed : fallback;
+	const raw = value.trim();
+	if (!NUMBER_PATTERN.test(raw)) return fallback;
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed)) return fallback;
+	const bounds = NUMBER_SETTING_BOUNDS[path];
+	if (!bounds || parsed < bounds.min || parsed > bounds.max) return fallback;
+	if (!isCrossFieldNumberValid(path, parsed, target)) return fallback;
+	return parsed;
+};
+
+const readString = (path: string, value: QueryValue, fallback: string): string => {
+	if (value === true) return fallback;
+	const candidate = value.trim();
+	if (!candidate) return fallback;
+	if (path === "theme.mode") return isThemeMode(candidate) ? candidate : fallback;
+	if (THEME_COLOR_KEYS.has(path)) return isColorValue(candidate) ? candidate : fallback;
+	return fallback;
+};
+
+const isThemeMode = (value: string): value is ThemeMode =>
+	value === "system" || value === "light" || value === "dark";
+
+const isColorValue = (value: string): boolean => {
+	if (!value) return false;
+	if (typeof CSS === "undefined" || typeof CSS.supports !== "function") return true;
+	return CSS.supports("color", value);
+};
+
+const isCrossFieldNumberValid = (path: string, value: number, target: AppSettings): boolean => {
+	if (path === "device.smallWidth") return value < target.device.largeWidth;
+	if (path === "device.largeWidth") return value > target.device.smallWidth;
+	if (path === "device.maxDprHigh") return value >= target.device.maxDprMedium;
+	if (path === "device.maxDprMedium") return value <= target.device.maxDprHigh;
+	return true;
 };
