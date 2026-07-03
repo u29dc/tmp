@@ -262,8 +262,11 @@ class Input extends BaseModule {
 				source: "wheel",
 			},
 		};
-		this.emitWheelIntent(event, dx, dy);
-		this.requestFrame("input:wheel");
+		try {
+			this.emitWheelIntent(event, dx, dy);
+		} finally {
+			this.requestFrame("input:wheel");
+		}
 	};
 
 	private readonly handleKeyDown = (event: KeyboardEvent): void => {
@@ -296,8 +299,11 @@ class Input extends BaseModule {
 
 	private readonly handleClick = (event: MouseEvent): void => {
 		const intent = createClickIntent(event);
-		for (const handler of this.clickHandlers) handler(intent);
-		this.requestFrame("input:click");
+		try {
+			this.emitIntent("input.click", this.clickHandlers, intent);
+		} finally {
+			this.requestFrame("input:click");
+		}
 	};
 
 	private readonly handleInputLoss = (): void => {
@@ -310,7 +316,21 @@ class Input extends BaseModule {
 
 	private emitWheelIntent(event: WheelEvent, dx: number, dy: number): void {
 		const intent = createWheelIntent(event, dx, dy);
-		for (const handler of this.wheelHandlers) handler(intent);
+		this.emitIntent("input.wheel", this.wheelHandlers, intent);
+	}
+
+	private emitIntent<T>(
+		name: string,
+		handlers: ReadonlySet<InputIntentHandler<T>>,
+		intent: T,
+	): void {
+		for (const handler of Array.from(handlers)) {
+			try {
+				handler(intent);
+			} catch (error) {
+				this.reportError(name, error);
+			}
+		}
 	}
 }
 

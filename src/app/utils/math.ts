@@ -60,6 +60,18 @@ export const damp = (
 
 export const signedDirection = (value: number): -1 | 0 | 1 => (value > 0 ? 1 : value < 0 ? -1 : 0);
 
+export const finiteOr = (value: number, fallback = 0): number =>
+	Number.isFinite(value) ? value : fallback;
+
+export const parseFiniteFloat = (value: string | undefined, fallback = 0): number => {
+	if (value === undefined) return fallback;
+	const parsed = Number.parseFloat(value);
+	return finiteOr(parsed, fallback);
+};
+
+export const fixed = (value: number, digits: number, fallback = 0): string =>
+	finiteOr(value, fallback).toFixed(digits);
+
 export const distance = (x: number, y: number): number => Math.hypot(x, y);
 
 export const distanceSquared = (x: number, y: number): number => x * x + y * y;

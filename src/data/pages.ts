@@ -1,6 +1,12 @@
 import type { SiteImageOverride } from "@/data/media";
 import { SITE } from "@/data/site";
-import type { ChangeFrequency, FeedItem, SitemapRoute, SitePath } from "@/lib/seo";
+import {
+	normalizeSitePath,
+	type ChangeFrequency,
+	type FeedItem,
+	type SitemapRoute,
+	type SitePath,
+} from "@/lib/seo";
 
 export type PageSitemap = {
 	lastModified?: Date;
@@ -70,10 +76,12 @@ export const SYSTEM_ROUTES = [
 ] satisfies SitemapRoute[];
 
 export const normalizePagePath = (value: string): SitePath => {
-	const path = value.startsWith("http") ? new URL(value).pathname : value;
-	const [pathname = "/"] = path.split(/[?#]/);
-	const prefixed = pathname.startsWith("/") ? pathname : `/${pathname}`;
-	return (prefixed.replace(/\/+$/, "") || "/") as SitePath;
+	try {
+		const path = value.startsWith("http") ? new URL(value).pathname : value;
+		return normalizeSitePath(path, "page path");
+	} catch {
+		return "/";
+	}
 };
 
 export const getPageByPath = (path: string): PageMetadata | undefined => {

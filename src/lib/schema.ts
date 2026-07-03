@@ -1,6 +1,6 @@
 import type { SiteImage } from "@/data/media";
 import { SITE } from "@/data/site";
-import { absoluteUrl } from "@/lib/seo";
+import { absoluteSiteUrl } from "@/lib/seo";
 
 export type SchemaNode = Record<string, unknown>;
 
@@ -28,7 +28,7 @@ const compactSchema = (schema: SchemaNode): SchemaNode =>
 const imageSchema = (image: SiteImage): SchemaNode =>
 	compactSchema({
 		"@type": "ImageObject",
-		url: absoluteUrl(image.path),
+		url: absoluteSiteUrl(image.path),
 		width: image.width,
 		height: image.height,
 		name: image.alt,

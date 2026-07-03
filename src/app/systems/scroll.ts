@@ -10,13 +10,23 @@ import {
 import { setRouteHash } from "@/app/systems/route";
 import {
 	focusElement,
+	readClassToken,
 	removeDataset,
 	removeStyleProperty,
 	setDataset,
 	setStyleProperty,
 	toggleClass,
 } from "@/app/utils/dom";
-import { clamp, damp, fit, saturate, signedDirection, unlerp } from "@/app/utils/math";
+import {
+	clamp,
+	damp,
+	fit,
+	fixed,
+	parseFiniteFloat,
+	saturate,
+	signedDirection,
+	unlerp,
+} from "@/app/utils/math";
 
 type ScrollElement = {
 	element: HTMLElement;
@@ -231,11 +241,11 @@ class Scroll extends BaseModule {
 		const speed =
 			element.dataset["scrollSpeed"] === undefined
 				? null
-				: Number.parseFloat(element.dataset["scrollSpeed"]);
+				: parseFiniteFloat(element.dataset["scrollSpeed"], Number.NaN);
 
 		return {
 			element,
-			className: element.dataset["scrollClass"] ?? INVIEW_CLASS,
+			className: readClassToken(element.dataset["scrollClass"], INVIEW_CLASS),
 			offsetStart,
 			offsetEnd,
 			positionStart,
@@ -459,10 +469,10 @@ class Scroll extends BaseModule {
 
 	private writeRootState(): void {
 		const root = document.documentElement;
-		setStyleProperty(root, "--scroll-y", this.state.actual.toFixed(3));
-		setStyleProperty(root, "--scroll-target", this.state.target.toFixed(3));
-		setStyleProperty(root, "--scroll-progress", this.state.progress.toFixed(5));
-		setStyleProperty(root, "--scroll-velocity", this.state.velocity.toFixed(3));
+		setStyleProperty(root, "--scroll-y", fixed(this.state.actual, 3));
+		setStyleProperty(root, "--scroll-target", fixed(this.state.target, 3));
+		setStyleProperty(root, "--scroll-progress", fixed(this.state.progress, 5));
+		setStyleProperty(root, "--scroll-velocity", fixed(this.state.velocity, 3));
 		setDataset(root, "smoothScroll", this.state.isSmoothEnabled ? "enhanced" : "native");
 		setDataset(root, "scrolling", this.state.isScrolling);
 		setDataset(
@@ -493,12 +503,12 @@ class Scroll extends BaseModule {
 				? "before"
 				: "after";
 		setDataset(item.element, "scrollState", scrollState);
-		setStyleProperty(item.element, "--scroll-progress", item.range.progress.toFixed(4));
-		setStyleProperty(item.element, "--scroll-raw-progress", item.range.rawProgress.toFixed(4));
-		setStyleProperty(item.element, "--scroll-show-ratio", item.range.showRatio.toFixed(4));
-		setStyleProperty(item.element, "--scroll-hide-ratio", item.range.hideRatio.toFixed(4));
+		setStyleProperty(item.element, "--scroll-progress", fixed(item.range.progress, 4));
+		setStyleProperty(item.element, "--scroll-raw-progress", fixed(item.range.rawProgress, 4));
+		setStyleProperty(item.element, "--scroll-show-ratio", fixed(item.range.showRatio, 4));
+		setStyleProperty(item.element, "--scroll-hide-ratio", fixed(item.range.hideRatio, 4));
 		if (item.cssProgress) {
-			setStyleProperty(item.element, "--progress", item.range.progress.toFixed(4));
+			setStyleProperty(item.element, "--progress", fixed(item.range.progress, 4));
 		}
 		if (item.range.isActive) toggleClass(item.element, item.className, true);
 		else if (item.repeat) toggleClass(item.element, item.className, false);
@@ -538,7 +548,7 @@ class Scroll extends BaseModule {
 		}
 		const viewport = frame.profile.viewport.height || window.innerHeight;
 		const value = fit(item.range.progress, 0, 1, -1, 1) * viewport * item.speed * -1;
-		setStyleProperty(item.element, "transform", `translate3d(0, ${value.toFixed(3)}px, 0)`);
+		setStyleProperty(item.element, "transform", `translate3d(0, ${fixed(value, 3)}px, 0)`);
 	}
 
 	private dispatchScrollCall(item: ScrollElement): void {
@@ -628,9 +638,9 @@ class Scroll extends BaseModule {
 		if (!element) return;
 
 		intent.preventDefault();
-		const offset = Number.parseFloat(trigger.dataset["scrollToOffset"] ?? "0");
+		const offset = parseFiniteFloat(trigger.dataset["scrollToOffset"], 0);
 		this.scrollTo(element, {
-			offset: Number.isFinite(offset) ? offset : 0,
+			offset,
 			immediate: trigger.dataset["scrollToImmediate"] !== undefined,
 		});
 		if (samePageUrl?.hash) setRouteHash(samePageUrl.hash);
@@ -708,9 +718,8 @@ const splitPair = (value = ""): [string, string] => {
 };
 
 const parseViewportOffset = (value: string, viewport: number): number => {
-	if (value.endsWith("%")) return (viewport * Number.parseFloat(value)) / 100;
-	const parsed = Number.parseFloat(value);
-	return Number.isFinite(parsed) ? parsed : 0;
+	if (value.endsWith("%")) return (viewport * parseFiniteFloat(value.slice(0, -1), 0)) / 100;
+	return parseFiniteFloat(value, 0);
 };
 
 const resolveStart = (item: ScrollElement, viewport: number): number => {

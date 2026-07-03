@@ -1,7 +1,7 @@
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
 import { setDataset, setStyleProperty } from "@/app/utils/dom";
-import { damp } from "@/app/utils/math";
+import { damp, fixed } from "@/app/utils/math";
 
 export type InteractiveState = {
 	element: HTMLElement;
@@ -148,13 +148,13 @@ export abstract class Component extends BaseModule {
 
 	protected writeInteractiveState(state: InteractiveState): void {
 		if (!state.changed) return;
-		setStyleProperty(state.element, "--ui-hover-ratio", state.hoverRatio.toFixed(4));
-		setStyleProperty(state.element, "--ui-focus-ratio", state.focusRatio.toFixed(4));
-		setStyleProperty(state.element, "--ui-active-ratio", state.activeRatio.toFixed(4));
+		setStyleProperty(state.element, "--ui-hover-ratio", fixed(state.hoverRatio, 4));
+		setStyleProperty(state.element, "--ui-focus-ratio", fixed(state.focusRatio, 4));
+		setStyleProperty(state.element, "--ui-active-ratio", fixed(state.activeRatio, 4));
 		setStyleProperty(
 			state.element,
 			"--ui-press-scale",
-			(1 - state.pressRatio * (1 - settings.interaction.pressScale)).toFixed(4),
+			fixed(1 - state.pressRatio * (1 - settings.interaction.pressScale), 4),
 		);
 		setDataset(state.element, "uiState", readUiState(state));
 		state.changed = false;

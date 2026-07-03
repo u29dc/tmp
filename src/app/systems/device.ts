@@ -8,6 +8,7 @@ import type {
 	NetworkProfile,
 	PerformanceTier,
 } from "@/app/core/state";
+import { setDataset } from "@/app/utils/dom";
 
 type NavigatorWithSignals = Navigator & {
 	connection?: NetworkInformationLike;
@@ -166,11 +167,11 @@ class Device extends BaseModule {
 		};
 
 		const root = document.documentElement;
-		root.dataset["performanceTier"] = tier;
-		root.dataset["motionQuality"] = motionQuality;
-		root.dataset["pointerProfile"] = pointerProfile;
-		root.dataset["displayProfile"] = displayProfile;
-		root.dataset["networkProfile"] = networkProfile;
+		setDataset(root, "performanceTier", tier);
+		setDataset(root, "motionQuality", motionQuality);
+		setDataset(root, "pointerProfile", pointerProfile);
+		setDataset(root, "displayProfile", displayProfile);
+		setDataset(root, "networkProfile", networkProfile);
 		this.requestFrame("device:profile");
 	}
 

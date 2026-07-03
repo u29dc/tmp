@@ -30,14 +30,38 @@ const inactiveTimer = (name: string): TimerHandle => ({
 	active: () => false,
 });
 
+const runCleanup = (errors: unknown[], cleanup: () => void): void => {
+	try {
+		cleanup();
+	} catch (error) {
+		errors.push(error);
+	}
+};
+
+const throwCleanupErrors = (errors: unknown[], message: string): void => {
+	if (errors.length === 1) throw errors[0];
+	if (errors.length > 1) throw new AggregateError(errors, message);
+};
+
 const cancelTimer = (timer: TimerEntry): void => {
 	if (timer.cancelled) return;
+	const errors: unknown[] = [];
 	timer.cancelled = true;
-	window.clearTimeout(timer.timeout);
-	timer.cancelScheduled?.();
-	timer.removeAbortListener?.();
 	timers.delete(timer.id);
-	timer.onCancel?.();
+	runCleanup(errors, () => window.clearTimeout(timer.timeout));
+	runCleanup(errors, () => timer.cancelScheduled?.());
+	runCleanup(errors, () => timer.removeAbortListener?.());
+	runCleanup(errors, () => timer.onCancel?.());
+	throwCleanupErrors(errors, `Failed to cancel timer "${timer.name}"`);
+};
+
+const cancelTimerSafe = (timer: TimerEntry): unknown | undefined => {
+	try {
+		cancelTimer(timer);
+		return undefined;
+	} catch (error) {
+		return error;
+	}
 };
 
 export const setTimerScheduler = (scheduler: TimerScheduler): (() => void) => {
@@ -74,10 +98,12 @@ export const setTimer = (
 			const cancelScheduled = scheduleTimerCallback(`timer:${name}`, () => {
 				const scheduledTimer = timers.get(id);
 				if (!scheduledTimer || scheduledTimer.cancelled) return;
+				const errors: unknown[] = [];
 				scheduledTimer.cancelled = true;
-				scheduledTimer.removeAbortListener?.();
 				timers.delete(id);
-				scheduledTimer.callback();
+				runCleanup(errors, () => scheduledTimer.removeAbortListener?.());
+				runCleanup(errors, () => scheduledTimer.callback());
+				throwCleanupErrors(errors, `Failed to run timer "${scheduledTimer.name}"`);
 			});
 			if (cancelScheduled) timer.cancelScheduled = cancelScheduled;
 		},
@@ -111,7 +137,12 @@ export const setTimer = (
 };
 
 export const cancelRuntimeTimers = (): void => {
-	for (const timer of Array.from(timers.values())) cancelTimer(timer);
+	const errors = Array.from(timers.values()).flatMap((timer) => {
+		const error = cancelTimerSafe(timer);
+		return error === undefined ? [] : [error];
+	});
+	if (errors.length === 1) throw errors[0];
+	if (errors.length > 1) throw new AggregateError(errors, "Failed to cancel runtime timers");
 };
 
 export const delayTimer = (name: string, delayMs: number, signal?: AbortSignal): Promise<void> => {

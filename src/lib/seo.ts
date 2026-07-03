@@ -28,13 +28,25 @@ export type FeedItem = {
 	contentText?: string;
 };
 
-export const absoluteUrl = (pathOrUrl: string, base = SITE.url): string => {
-	try {
-		return new URL(pathOrUrl).toString();
-	} catch {
-		return new URL(pathOrUrl, base).toString();
-	}
+export const isSitePath = (value: string): value is SitePath =>
+	value.startsWith("/") && !value.startsWith("//") && !/[?#]/.test(value);
+
+export const assertSitePath = (value: string, label = "site path"): SitePath => {
+	if (isSitePath(value)) return value;
+	throw new Error(`${label} must be a root-relative path without protocol, query, or hash`);
 };
+
+export const normalizeSitePath = (value: string, label = "site path"): SitePath => {
+	if (/^[a-z][a-z\d+.-]*:/i.test(value) || value.startsWith("//")) {
+		throw new Error(`${label} must be site-local`);
+	}
+	const [pathname = "/"] = value.split(/[?#]/);
+	const prefixed = pathname.startsWith("/") ? pathname : `/${pathname}`;
+	return assertSitePath(prefixed.replace(/\/+$/, "") || "/", label);
+};
+
+export const absoluteSiteUrl = (path: string, base = SITE.url): string =>
+	new URL(assertSitePath(path), base).toString();
 
 export const escapeXml = (value: string): string =>
 	value

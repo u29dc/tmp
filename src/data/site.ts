@@ -1,4 +1,5 @@
 import type { SiteImage } from "@/data/media";
+import type { SitePath } from "@/lib/seo";
 import { resolveSiteUrl } from "@/lib/site-url";
 
 export type SiteConfig = {
@@ -15,19 +16,19 @@ export type SiteConfig = {
 	themeColorLight: string;
 	themeColorDark: string;
 	backgroundColor: string;
-	faviconIcoPath: `/${string}`;
-	appleTouchIconPath: `/${string}`;
+	faviconIcoPath: SitePath;
+	appleTouchIconPath: SitePath;
 	ogImage: SiteImage;
 	icons: {
-		src: `/${string}`;
+		src: SitePath;
 		sizes: string;
 		type: string;
 		purpose: "any" | "maskable";
 	}[];
 	feeds: {
-		rss: `/${string}`;
-		json: `/${string}`;
-		llms: `/${string}`;
+		rss: SitePath;
+		json: SitePath;
+		llms: SitePath;
 	};
 };
 

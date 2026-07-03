@@ -3,7 +3,7 @@ import '@/styles/app.css';
 import { mergeImage, type SiteImageOverride } from '@/data/media';
 import { getPageByPath } from '@/data/pages';
 import { SITE } from '@/data/site';
-import { absoluteUrl } from '@/lib/seo';
+import { absoluteSiteUrl } from '@/lib/seo';
 import Router from '@/app/systems/router.astro';
 
 type Props = {
@@ -28,9 +28,9 @@ const noindex = props.noindex ?? page?.noindex ?? false;
 const publishedTime = props.publishedTime ?? page?.publishedTime;
 const modifiedTime = props.modifiedTime ?? page?.modifiedTime;
 const pageTitle = title === SITE.title ? title : `${title} | ${SITE.name}`;
-const canonicalUrl = absoluteUrl(canonicalPath ?? Astro.url.pathname);
+const canonicalUrl = absoluteSiteUrl(canonicalPath ?? Astro.url.pathname);
 const image = mergeImage(SITE.ogImage, page?.image, props.image);
-const ogImageUrl = absoluteUrl(image.path);
+const ogImageUrl = absoluteSiteUrl(image.path);
 const robots = noindex ? 'noindex, nofollow' : 'index, follow';
 ---
 

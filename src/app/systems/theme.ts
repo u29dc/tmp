@@ -55,7 +55,7 @@ class Theme extends BaseModule {
 		this.appliedRoot = root;
 		setDataset(root, "theme", scheme);
 		setDataset(root, "themeMode", settings.theme.mode);
-		root.style.colorScheme = scheme;
+		setStyleProperty(root, "color-scheme", scheme);
 		writeThemeColors(root, colors);
 		writeThemeMeta(scheme, colors);
 		this.emitChange(scheme, colors);
@@ -97,7 +97,7 @@ const hasAppliedTheme = (root: HTMLElement, scheme: ThemeScheme, colors: ThemeCo
 	return (
 		root.dataset["theme"] === scheme &&
 		root.dataset["themeMode"] === settings.theme.mode &&
-		root.style.colorScheme === scheme &&
+		root.style.getPropertyValue("color-scheme") === scheme &&
 		root.style.getPropertyValue("--site-ground") === colors.ground &&
 		root.style.getPropertyValue("--site-ink") === colors.ink &&
 		colorSchemeMeta?.content === scheme &&
@@ -131,7 +131,7 @@ const writeThemeMeta = (scheme: ThemeScheme, colors: ThemeColors): void => {
 	if (!themeColorMeta) {
 		themeColorMeta = document.createElement("meta");
 		themeColorMeta.name = "theme-color";
-		themeColorMeta.dataset["runtimeThemeColor"] = "true";
+		setDataset(themeColorMeta, "runtimeThemeColor", "true");
 		document.head.append(themeColorMeta);
 	}
 	if (themeColorMeta.content !== colors.ground) themeColorMeta.content = colors.ground;

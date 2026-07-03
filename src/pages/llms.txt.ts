@@ -1,10 +1,10 @@
 import { PUBLIC_PAGES } from "@/data/pages";
 import { SITE } from "@/data/site";
-import { absoluteUrl } from "@/lib/seo";
+import { absoluteSiteUrl } from "@/lib/seo";
 
-const routeLines = PUBLIC_PAGES.map((page) => `- ${page.title}: ${absoluteUrl(page.path)}`).join(
-	"\n",
-);
+const routeLines = PUBLIC_PAGES.map(
+	(page) => `- ${page.title}: ${absoluteSiteUrl(page.path)}`,
+).join("\n");
 
 const body = [
 	`# ${SITE.name}`,
@@ -12,9 +12,9 @@ const body = [
 	"## Public Routes",
 	routeLines,
 	"## Feeds",
-	`- RSS: ${absoluteUrl(SITE.feeds.rss)}`,
-	`- JSON Feed: ${absoluteUrl(SITE.feeds.json)}`,
-	`- Sitemap: ${absoluteUrl("/sitemap.xml")}`,
+	`- RSS: ${absoluteSiteUrl(SITE.feeds.rss)}`,
+	`- JSON Feed: ${absoluteSiteUrl(SITE.feeds.json)}`,
+	`- Sitemap: ${absoluteSiteUrl("/sitemap.xml")}`,
 ].join("\n\n");
 
 export const GET = (): Response =>

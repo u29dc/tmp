@@ -1,6 +1,6 @@
 import { SITE } from "@/data/site";
 import { SITE_ROUTES, SYSTEM_ROUTES } from "@/data/routes";
-import { absoluteUrl, escapeXml, type SitemapRoute } from "@/lib/seo";
+import { absoluteSiteUrl, escapeXml, type SitemapRoute } from "@/lib/seo";
 
 const formatPriority = (value: number): string =>
 	Number.isInteger(value) ? value.toFixed(1) : String(value);
@@ -17,7 +17,7 @@ const buildUrl = (entry: SitemapRoute): string => {
 			? ""
 			: `\n\t<priority>${formatPriority(entry.priority)}</priority>`;
 
-	return `\n<url>\n\t<loc>${escapeXml(absoluteUrl(entry.path, SITE.url))}</loc>${lastModified}${changeFrequency}${priority}\n</url>`;
+	return `\n<url>\n\t<loc>${escapeXml(absoluteSiteUrl(entry.path, SITE.url))}</loc>${lastModified}${changeFrequency}${priority}\n</url>`;
 };
 
 const buildSitemap = (entries: readonly SitemapRoute[]): string =>

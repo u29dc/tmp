@@ -3,6 +3,9 @@ export const DEFAULT_SITE_URL = "https://example.com";
 export const normalizeSiteUrl = (value: string): string => {
 	const trimmed = value.trim();
 	if (!trimmed) throw new Error("SITE_URL cannot be empty");
+	if (trimmed.includes("?") || trimmed.includes("#")) {
+		throw new Error("SITE_URL must not include credentials, query, or hash");
+	}
 
 	let url: URL;
 	try {

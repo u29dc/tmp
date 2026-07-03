@@ -15,6 +15,7 @@ export const setDataset = (
 	value: string | number | boolean,
 ): boolean => {
 	const next = String(value);
+	if (!next) return removeDataset(element, key);
 	if (element.dataset[key] === next) return false;
 	element.dataset[key] = next;
 	return true;
@@ -32,6 +33,9 @@ export const setStyleProperty = (
 	value: string | number,
 ): boolean => {
 	const next = String(value);
+	if (!next || next === "NaN" || next === "Infinity" || next === "-Infinity") {
+		return removeStyleProperty(element, property);
+	}
 	if (element.style.getPropertyValue(property) === next) return false;
 	element.style.setProperty(property, next);
 	return true;
@@ -44,11 +48,20 @@ export const removeStyleProperty = (element: HTMLElement, property: string): boo
 };
 
 export const toggleClass = (element: Element, className: string, enabled: boolean): boolean => {
+	if (!isClassToken(className)) return false;
 	const hasClass = element.classList.contains(className);
 	if (hasClass === enabled) return false;
 	element.classList.toggle(className, enabled);
 	return true;
 };
+
+export const isClassToken = (value: string): boolean => {
+	const token = value.trim();
+	return token.length > 0 && !/\s/.test(token);
+};
+
+export const readClassToken = (value: string | undefined, fallback: string): string =>
+	value && isClassToken(value) ? value.trim() : fallback;
 
 export const focusElement = (element: HTMLElement): void => {
 	const hadTabIndex = element.hasAttribute("tabindex");

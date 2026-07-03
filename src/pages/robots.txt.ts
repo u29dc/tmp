@@ -1,5 +1,5 @@
 import { SITE } from "@/data/site";
-import { absoluteUrl } from "@/lib/seo";
+import { absoluteSiteUrl } from "@/lib/seo";
 
 export const GET = (): Response =>
 	new Response(
@@ -10,7 +10,7 @@ export const GET = (): Response =>
 			`Allow: ${SITE.feeds.json}`,
 			`Allow: ${SITE.feeds.llms}`,
 			"",
-			`Sitemap: ${absoluteUrl("/sitemap.xml")}`,
+			`Sitemap: ${absoluteSiteUrl("/sitemap.xml")}`,
 			"",
 		].join("\n"),
 		{

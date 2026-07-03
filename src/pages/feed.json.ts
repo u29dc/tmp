@@ -1,6 +1,6 @@
 import { SITE } from "@/data/site";
 import { FEED_ITEMS } from "@/data/routes";
-import { absoluteUrl, sortFeedItems, type FeedItem } from "@/lib/seo";
+import { absoluteSiteUrl, sortFeedItems, type FeedItem } from "@/lib/seo";
 
 type JsonFeedAuthor = {
 	name: string;
@@ -29,7 +29,7 @@ type JsonFeed = {
 };
 
 const buildItem = (item: FeedItem): JsonFeedItem => {
-	const url = absoluteUrl(item.path);
+	const url = absoluteSiteUrl(item.path);
 
 	return {
 		id: item.id ?? url,
@@ -46,7 +46,7 @@ const buildFeed = (items: readonly FeedItem[]): JsonFeed => ({
 	version: "https://jsonfeed.org/version/1.1",
 	title: SITE.name,
 	home_page_url: SITE.url,
-	feed_url: absoluteUrl(SITE.feeds.json),
+	feed_url: absoluteSiteUrl(SITE.feeds.json),
 	description: SITE.description,
 	language: SITE.lang,
 	...(SITE.creator ? { authors: [{ name: SITE.creator, url: SITE.url }] } : {}),

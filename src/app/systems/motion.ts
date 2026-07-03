@@ -150,6 +150,7 @@ class Motion extends BaseModule {
 	}
 
 	private readonly handleRoutePreparation = async (event: {
+		id: number;
 		signal: AbortSignal;
 	}): Promise<void> => {
 		this.clearRouteHandle();

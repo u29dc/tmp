@@ -1,6 +1,7 @@
 import type { Context, Frame, Module } from "@/app/core/module";
 import type { DeviceProfile, InputState, RouteState, ScrollState } from "@/app/core/state";
 import { cancelRuntimeTimers, setTimerScheduler } from "@/app/core/timer";
+import { setDataset } from "@/app/utils/dom";
 
 export type AppConfig = {
 	getInput: () => InputState;
@@ -47,7 +48,7 @@ export class App {
 
 	start(): void {
 		if (!isBrowser || this.started) return;
-		document.documentElement.dataset["runtime"] = "booting";
+		setDataset(document.documentElement, "runtime", "booting");
 		this.started = true;
 		this.context = this.createContext();
 		this.resetTimerScheduler = setTimerScheduler((name, callback) => {
@@ -60,9 +61,11 @@ export class App {
 
 		window.addEventListener("resize", this.handleResize, { passive: true });
 		document.addEventListener("visibilitychange", this.handleVisibilityChange);
-		document.documentElement.dataset["runtime"] = "ready";
-		document.documentElement.dataset["runtimeVisible"] = String(
-			document.visibilityState === "visible",
+		setDataset(document.documentElement, "runtime", "ready");
+		setDataset(
+			document.documentElement,
+			"runtimeVisible",
+			String(document.visibilityState === "visible"),
 		);
 		this.requestFrame("app:start");
 	}
@@ -70,27 +73,34 @@ export class App {
 	dispose(): void {
 		if (!this.started) return;
 		this.started = false;
-		if (this.rafId !== 0) {
-			cancelAnimationFrame(this.rafId);
-			this.rafId = 0;
+		try {
+			if (this.rafId !== 0) {
+				cancelAnimationFrame(this.rafId);
+				this.rafId = 0;
+			}
+			window.removeEventListener("resize", this.handleResize);
+			document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+			for (const module of [...this.modules].toReversed()) this.runDispose(module);
+			this.pendingCallbacks.length = 0;
+			cancelRuntimeTimers();
+		} catch (error) {
+			this.recordError({ name: "dispose" }, error);
+		} finally {
+			this.resetTimerScheduler?.();
+			this.resetTimerScheduler = undefined;
+			this.ticking = false;
+			this.requestedDuringTick = false;
+			this.lastTime = 0;
 		}
-		window.removeEventListener("resize", this.handleResize);
-		document.removeEventListener("visibilitychange", this.handleVisibilityChange);
-		for (const module of [...this.modules].toReversed()) this.runDispose(module);
-		this.pendingCallbacks.length = 0;
-		cancelRuntimeTimers();
-		this.resetTimerScheduler?.();
-		this.resetTimerScheduler = undefined;
-		this.ticking = false;
-		this.requestedDuringTick = false;
-		this.lastTime = 0;
 	}
 
 	refreshPage(reason = "route:refresh"): void {
 		if (!this.started) return;
-		document.documentElement.dataset["runtime"] = "ready";
-		document.documentElement.dataset["runtimeVisible"] = String(
-			document.visibilityState === "visible",
+		setDataset(document.documentElement, "runtime", "ready");
+		setDataset(
+			document.documentElement,
+			"runtimeVisible",
+			String(document.visibilityState === "visible"),
 		);
 		for (const module of this.modules) this.runLifecycle(module, "refresh");
 		for (const module of this.modules) this.runLifecycle(module, "resize");
@@ -150,19 +160,24 @@ export class App {
 
 	private createFrame(timestamp: number): Frame {
 		const rawdt = this.lastTime === 0 ? 0 : timestamp - this.lastTime;
+		const frameIndex = this.frameIndex + 1;
+		const profile = this.config.getProfile();
+		const route = this.config.getRoute();
+		const input = this.config.getInput();
+		const scroll = this.config.getScroll();
 		this.lastTime = timestamp;
-		this.frameIndex += 1;
+		this.frameIndex = frameIndex;
 
 		return {
-			index: this.frameIndex,
+			index: frameIndex,
 			now: timestamp,
 			rawdt,
 			dt: Math.min(Math.max(rawdt, 0), MAX_DELTA_MS) / 1000,
 			visible: document.visibilityState === "visible",
-			profile: this.config.getProfile(),
-			route: this.config.getRoute(),
-			input: this.config.getInput(),
-			scroll: this.config.getScroll(),
+			profile,
+			route,
+			input,
+			scroll,
 		};
 	}
 
@@ -212,42 +227,44 @@ export class App {
 		this.ticking = true;
 		this.requestedDuringTick = false;
 
-		const frame = this.createFrame(timestamp);
 		let needsNextFrame = false;
-
+		let shouldContinue = false;
 		try {
-			this.config.beforeFrame?.(frame);
-		} catch (error) {
-			this.recordError({ name: "beforeFrame" }, error);
-		}
+			const frame = this.createFrame(timestamp);
 
-		this.runPendingCallbacks();
-		for (const module of this.modules) {
-			if (!module.update) continue;
 			try {
-				needsNextFrame = module.update.call(module, frame) === true || needsNextFrame;
+				this.config.beforeFrame?.(frame);
 			} catch (error) {
-				this.recordError(module, error);
+				this.recordError({ name: "beforeFrame" }, error);
 			}
-		}
 
-		try {
-			this.config.afterFrame?.(frame);
+			this.runPendingCallbacks();
+			for (const module of this.modules) {
+				if (!module.update) continue;
+				try {
+					needsNextFrame = module.update.call(module, frame) === true || needsNextFrame;
+				} catch (error) {
+					this.recordError(module, error);
+				}
+			}
+
+			try {
+				this.config.afterFrame?.(frame);
+			} catch (error) {
+				this.recordError({ name: "afterFrame" }, error);
+			}
 		} catch (error) {
-			this.recordError({ name: "afterFrame" }, error);
-		}
+			this.recordError({ name: "frame" }, error);
+		} finally {
+			shouldContinue =
+				needsNextFrame ||
+				this.requestedDuringTick ||
+				this.pendingCallbacks.some((callback) => !callback.cancelled);
+			this.ticking = false;
 
-		const shouldContinue =
-			needsNextFrame ||
-			this.requestedDuringTick ||
-			this.pendingCallbacks.some((callback) => !callback.cancelled);
-		this.ticking = false;
-
-		if (shouldContinue) {
-			this.requestFrame(this.lastReason);
-			return;
+			if (!shouldContinue) this.lastTime = 0;
 		}
-		this.lastTime = 0;
+		if (shouldContinue) this.requestFrame(this.lastReason);
 	};
 
 	private readonly handleResize = (): void => {
@@ -257,8 +274,10 @@ export class App {
 
 	private readonly handleVisibilityChange = (): void => {
 		this.lastTime = 0;
-		document.documentElement.dataset["runtimeVisible"] = String(
-			document.visibilityState === "visible",
+		setDataset(
+			document.documentElement,
+			"runtimeVisible",
+			String(document.visibilityState === "visible"),
 		);
 		if (document.visibilityState === "visible") this.requestFrame("document:visibility");
 	};

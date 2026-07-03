@@ -4,7 +4,7 @@ import { setDataset, setStyleProperty } from "@/app/utils/dom";
 export const applyDevPaneTheme = (element: HTMLElement): void => {
 	const scheme = getThemeScheme();
 	const colors = getThemeColors();
-	element.style.colorScheme = scheme;
+	setStyleProperty(element, "color-scheme", scheme);
 	setDataset(element, "theme", scheme);
 
 	const softState = `color-mix(in srgb, ${colors.ink} 7%, transparent)`;

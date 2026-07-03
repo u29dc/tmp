@@ -188,8 +188,8 @@ const applyDebugSettings = (): void => {
 
 const createContainer = (): HTMLElement => {
 	const container = document.createElement("aside");
-	container.dataset["devPane"] = "true";
-	container.dataset["nativeScroll"] = "true";
+	setDataset(container, "devPane", "true");
+	setDataset(container, "nativeScroll", "true");
 	container.setAttribute("aria-label", "Runtime controls");
 	return container;
 };

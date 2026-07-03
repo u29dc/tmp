@@ -1,9 +1,17 @@
 import { SITE } from "@/data/site";
 import { FEED_ITEMS } from "@/data/routes";
-import { absoluteUrl, escapeXml, latestFeedDate, sortFeedItems, type FeedItem } from "@/lib/seo";
+import {
+	absoluteSiteUrl,
+	escapeXml,
+	latestFeedDate,
+	sortFeedItems,
+	type FeedItem,
+} from "@/lib/seo";
 
 const buildItem = (item: FeedItem): string => {
-	const url = absoluteUrl(item.path);
+	const url = absoluteSiteUrl(item.path);
+	const guid = item.id ?? url;
+	const isPermaLink = item.id === undefined;
 	const categories = (item.tags ?? [])
 		.map((tag) => `\n\t\t<category>${escapeXml(tag)}</category>`)
 		.join("");
@@ -12,7 +20,7 @@ const buildItem = (item: FeedItem): string => {
 		"\t<item>",
 		`\t\t<title>${escapeXml(item.title)}</title>`,
 		`\t\t<link>${escapeXml(url)}</link>`,
-		`\t\t<guid isPermaLink="true">${escapeXml(item.id ?? url)}</guid>`,
+		`\t\t<guid isPermaLink="${String(isPermaLink)}">${escapeXml(guid)}</guid>`,
 		`\t\t<description>${escapeXml(item.description)}</description>`,
 		`\t\t<pubDate>${item.date.toUTCString()}</pubDate>${categories}`,
 		"\t</item>",
@@ -21,7 +29,7 @@ const buildItem = (item: FeedItem): string => {
 
 const buildFeed = (items: readonly FeedItem[]): string => {
 	const sorted = sortFeedItems(items);
-	const feedUrl = absoluteUrl(SITE.feeds.rss);
+	const feedUrl = absoluteSiteUrl(SITE.feeds.rss);
 
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
