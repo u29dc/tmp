@@ -90,6 +90,9 @@ class Input extends BaseModule {
 		document.addEventListener("click", this.handleClick);
 		document.addEventListener("keydown", this.handleKeyDown);
 		document.addEventListener("keyup", this.handleKeyUp);
+		window.addEventListener("blur", this.handleInputLoss, { passive: true });
+		window.addEventListener("pagehide", this.handleInputLoss, { passive: true });
+		document.addEventListener("visibilitychange", this.handleVisibilityChange);
 		this.addCleanup(() => document.removeEventListener("pointermove", this.handlePointerMove));
 		this.addCleanup(() => document.removeEventListener("pointerdown", this.handlePointerDown));
 		this.addCleanup(() => document.removeEventListener("pointerup", this.handlePointerUp));
@@ -98,6 +101,11 @@ class Input extends BaseModule {
 		this.addCleanup(() => document.removeEventListener("click", this.handleClick));
 		this.addCleanup(() => document.removeEventListener("keydown", this.handleKeyDown));
 		this.addCleanup(() => document.removeEventListener("keyup", this.handleKeyUp));
+		this.addCleanup(() => window.removeEventListener("blur", this.handleInputLoss));
+		this.addCleanup(() => window.removeEventListener("pagehide", this.handleInputLoss));
+		this.addCleanup(() =>
+			document.removeEventListener("visibilitychange", this.handleVisibilityChange),
+		);
 	}
 
 	override init(context: Context): void {
@@ -198,6 +206,35 @@ class Input extends BaseModule {
 		};
 	}
 
+	private releaseActiveInput(): void {
+		const hasActiveInput =
+			this.state.pointer.isDown ||
+			this.activeKeys.size > 0 ||
+			this.state.keyboard.activeKeys.length > 0;
+		if (!hasActiveInput) return;
+		this.activeKeys.clear();
+		this.state = {
+			...this.state,
+			generation: this.nextGeneration(),
+			pointer: {
+				...this.state.pointer,
+				dx: 0,
+				dy: 0,
+				vx: 0,
+				vy: 0,
+				isDown: false,
+				wasPressed: false,
+				wasReleased: false,
+			},
+			keyboard: {
+				...this.state.keyboard,
+				hadKeyboardInput: false,
+				activeKeys: [],
+			},
+		};
+		this.requestFrame("input:release");
+	}
+
 	private readonly handlePointerMove = (event: PointerEvent): void => {
 		this.updatePointer(event);
 		this.requestFrame("input:pointer");
@@ -261,6 +298,14 @@ class Input extends BaseModule {
 		const intent = createClickIntent(event);
 		for (const handler of this.clickHandlers) handler(intent);
 		this.requestFrame("input:click");
+	};
+
+	private readonly handleInputLoss = (): void => {
+		this.releaseActiveInput();
+	};
+
+	private readonly handleVisibilityChange = (): void => {
+		if (document.visibilityState === "hidden") this.releaseActiveInput();
 	};
 
 	private emitWheelIntent(event: WheelEvent, dx: number, dy: number): void {

@@ -31,7 +31,9 @@ class UI extends BaseModule {
 
 	override update(frame: Frame): boolean | void {
 		super.update(frame);
-		return button.update(frame) === true || link.update(frame) === true;
+		const buttonChanged = button.update(frame) === true;
+		const linkChanged = link.update(frame) === true;
+		return buttonChanged || linkChanged;
 	}
 
 	override dispose(): void {

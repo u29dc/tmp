@@ -162,19 +162,28 @@ class Route extends BaseModule {
 		const originalLoader = transitionEvent.loader;
 		const fromPathname = this.state.pathname;
 		const toPathname = transitionEvent.to.pathname;
+		let aborted = false;
+		const abortTransition = (): void => {
+			if (aborted) return;
+			aborted = true;
+			this.emitAbort();
+		};
 		const exitWork = this.emitPreparation({
 			to: transitionEvent.to,
 			signal: transitionEvent.signal,
 			fromPathname,
 			toPathname,
+		}).catch((error: unknown) => {
+			abortTransition();
+			throw error;
 		});
+		void exitWork.catch(() => undefined);
 
 		transitionEvent.loader = async (): Promise<void> => {
 			try {
-				await originalLoader();
-				await exitWork;
+				await Promise.all([originalLoader(), exitWork]);
 			} catch (error) {
-				this.emitAbort();
+				abortTransition();
 				throw error;
 			}
 		};

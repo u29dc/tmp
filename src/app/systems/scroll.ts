@@ -689,8 +689,15 @@ const readSmoothWheelDeltaY = (intent: InputWheelIntent): number =>
 const shouldUseNativeWheel = (intent: InputWheelIntent, enabled: boolean): boolean => {
 	if (!enabled || intent.defaultPrevented) return true;
 	if (intent.ctrlKey || intent.metaKey || intent.shiftKey) return true;
+	if (isHorizontalWheelIntent(intent)) return true;
 	if (!(intent.target instanceof Element)) return false;
 	return Boolean(intent.target.closest(NATIVE_SCROLL_SELECTOR));
+};
+
+const isHorizontalWheelIntent = (intent: InputWheelIntent): boolean => {
+	const x = Math.abs(intent.dx);
+	const y = Math.abs(intent.dy);
+	return x > 0 && x > y;
 };
 
 const splitPair = (value = ""): [string, string] => {
