@@ -12,6 +12,7 @@ build/
 .idea/
 *.log
 .tmp/
+.clawpatch/
 .env
 .env.*
 !.env.example
