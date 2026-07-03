@@ -8,6 +8,7 @@ import {
 	onRouteBeforeSwap,
 	onRouteLoad,
 	onRoutePreparation,
+	type RouteEvent,
 } from "@/app/systems/route";
 
 export type MotionHandle = {
@@ -25,6 +26,8 @@ class Motion extends BaseModule {
 	readonly name = "motion";
 
 	private routeHandle: MotionHandle | undefined;
+	private routeHandleToken: number | undefined;
+	private routeMotionToken = 0;
 	private handles = new Set<MotionHandle>();
 
 	override preInit(context: Context): void {
@@ -142,17 +145,34 @@ class Motion extends BaseModule {
 	private clearRouteHandle(): void {
 		this.routeHandle?.cancel();
 		this.routeHandle = undefined;
+		this.routeHandleToken = undefined;
+	}
+
+	private nextRouteMotionToken(): number {
+		this.routeMotionToken += 1;
+		return this.routeMotionToken;
+	}
+
+	private isCurrentRouteMotion(token: number): boolean {
+		return token === this.routeMotionToken;
+	}
+
+	private ownsRouteHandle(token: number): boolean {
+		return this.isCurrentRouteMotion(token) && this.routeHandleToken === token;
 	}
 
 	private cancelAll(): void {
 		for (const handle of Array.from(this.handles)) handle.cancel();
 		this.handles.clear();
+		this.routeHandle = undefined;
+		this.routeHandleToken = undefined;
 	}
 
 	private readonly handleRoutePreparation = async (event: {
 		id: number;
 		signal: AbortSignal;
 	}): Promise<void> => {
+		this.nextRouteMotionToken();
 		this.clearRouteHandle();
 		const root = document.documentElement;
 		setDataset(root, "pageState", "exiting");
@@ -166,34 +186,47 @@ class Motion extends BaseModule {
 		setDataset(root, "routeMotion", "swapping");
 	};
 
-	private readonly handleRouteAfterSwap = (): void => {
+	private readonly handleRouteAfterSwap = (_event: RouteEvent): void => {
+		const token = this.nextRouteMotionToken();
+		this.clearRouteHandle();
 		const root = document.documentElement;
 		setDataset(root, "pageState", "entering");
 		setDataset(root, "routeMotion", "entering");
 		this.routeHandle = this.queueFrame("route.enter", () => {
+			if (!this.ownsRouteHandle(token)) return;
 			this.routeHandle = this.delay(
 				"route.enter.complete",
 				settings.motion.routeEnterMs,
 				() => {
+					if (!this.ownsRouteHandle(token)) return;
 					setDataset(document.documentElement, "pageState", "idle");
 					removeDataset(document.documentElement, "routeMotion");
 					this.routeHandle = undefined;
+					this.routeHandleToken = undefined;
 				},
 			);
+			this.routeHandleToken = token;
 		});
+		this.routeHandleToken = token;
 	};
 
-	private readonly handleRouteLoad = (): void => {
-		if (this.routeHandle) return;
+	private readonly handleRouteLoad = (_event: RouteEvent): void => {
+		if (this.routeHandle && this.routeHandleToken === this.routeMotionToken) return;
+		this.clearRouteHandle();
 		if (document.documentElement.dataset["pageState"] === "idle") return;
+		const token = this.nextRouteMotionToken();
 		this.routeHandle = this.delay("route.load.idle", settings.motion.routeBufferMs, () => {
+			if (!this.ownsRouteHandle(token)) return;
 			setDataset(document.documentElement, "pageState", "idle");
 			removeDataset(document.documentElement, "routeMotion");
 			this.routeHandle = undefined;
+			this.routeHandleToken = undefined;
 		});
+		this.routeHandleToken = token;
 	};
 
-	private readonly handleRouteAbort = (): void => {
+	private readonly handleRouteAbort = (_event: RouteEvent): void => {
+		this.nextRouteMotionToken();
 		this.clearRouteHandle();
 		setDataset(document.documentElement, "pageState", "idle");
 		removeDataset(document.documentElement, "routeMotion");

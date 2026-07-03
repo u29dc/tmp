@@ -234,7 +234,7 @@ class Route extends BaseModule {
 		delete this.state.from;
 		delete this.state.to;
 		this.applyToDocument();
-		for (const handler of this.afterSwapHandlers) handler({ id: id ?? 0 });
+		this.emitRouteHandlers("route.afterSwap", this.afterSwapHandlers, { id: id ?? 0 });
 		this.requestFrame("route:after-swap");
 	};
 
@@ -248,10 +248,13 @@ class Route extends BaseModule {
 			generation: this.state.generation + 1,
 		};
 		this.applyToDocument();
-		for (const handler of this.loadHandlers) handler({ id: id ?? 0 });
-		this.requestFrame("route:page-load");
-		this.setPageState("idle");
-		this.activeTransitionId = undefined;
+		try {
+			this.emitRouteHandlers("route.load", this.loadHandlers, { id: id ?? 0 });
+		} finally {
+			this.requestFrame("route:page-load");
+			this.setPageState("idle");
+			this.activeTransitionId = undefined;
+		}
 	};
 
 	private async emitPreparation(event: RoutePreparation): Promise<void> {
@@ -267,7 +270,21 @@ class Route extends BaseModule {
 		if (!this.isActiveTransition(id)) return;
 		this.setPageState("idle");
 		this.activeTransitionId = undefined;
-		for (const handler of this.abortHandlers) handler({ id });
+		this.emitRouteHandlers("route.abort", this.abortHandlers, { id });
+	}
+
+	private emitRouteHandlers(
+		name: string,
+		handlers: ReadonlySet<RouteHandler>,
+		event: RouteEvent,
+	): void {
+		for (const handler of Array.from(handlers)) {
+			try {
+				handler(event);
+			} catch (error) {
+				this.reportError(name, error);
+			}
+		}
 	}
 
 	private createTransitionId(signal: AbortSignal): number {

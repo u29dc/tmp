@@ -69,6 +69,9 @@ const createInputState = (): InputState => ({
 	keyboard: emptyKeyboard(),
 });
 
+const keyboardKeyId = (event: KeyboardEvent): string =>
+	event.code.length > 0 ? event.code : `key:${event.key}`;
+
 class Input extends BaseModule {
 	readonly name = "input";
 
@@ -76,7 +79,7 @@ class Input extends BaseModule {
 	private previousX = 0;
 	private previousY = 0;
 	private generation = 0;
-	private activeKeys = new Set<string>();
+	private activeKeys = new Map<string, string>();
 	private readonly wheelHandlers = new Set<InputIntentHandler<InputWheelIntent>>();
 	private readonly clickHandlers = new Set<InputIntentHandler<InputClickIntent>>();
 
@@ -169,6 +172,10 @@ class Input extends BaseModule {
 		return this.generation;
 	}
 
+	private activeKeyValues(): string[] {
+		return Array.from(new Set(this.activeKeys.values()));
+	}
+
 	private updatePointer(
 		event: PointerEvent,
 		options?: { pressed?: boolean; released?: boolean },
@@ -198,8 +205,8 @@ class Input extends BaseModule {
 					: options?.pressed
 						? true
 						: this.state.pointer.isDown,
-				wasPressed: options?.pressed ?? false,
-				wasReleased: options?.released ?? false,
+				wasPressed: this.state.pointer.wasPressed || options?.pressed === true,
+				wasReleased: this.state.pointer.wasReleased || options?.released === true,
 				activePointerType: event.pointerType || "unknown",
 				path: composedPath(event),
 			},
@@ -270,28 +277,28 @@ class Input extends BaseModule {
 	};
 
 	private readonly handleKeyDown = (event: KeyboardEvent): void => {
-		this.activeKeys.add(event.key);
+		this.activeKeys.set(keyboardKeyId(event), event.key);
 		this.state = {
 			...this.state,
 			generation: this.nextGeneration(),
 			keyboard: {
 				lastKey: event.key,
 				hadKeyboardInput: true,
-				activeKeys: Array.from(this.activeKeys),
+				activeKeys: this.activeKeyValues(),
 			},
 		};
 		this.requestFrame("input:keyboard");
 	};
 
 	private readonly handleKeyUp = (event: KeyboardEvent): void => {
-		this.activeKeys.delete(event.key);
+		this.activeKeys.delete(keyboardKeyId(event));
 		this.state = {
 			...this.state,
 			generation: this.nextGeneration(),
 			keyboard: {
 				lastKey: event.key,
 				hadKeyboardInput: true,
-				activeKeys: Array.from(this.activeKeys),
+				activeKeys: this.activeKeyValues(),
 			},
 		};
 		this.requestFrame("input:keyboard");
