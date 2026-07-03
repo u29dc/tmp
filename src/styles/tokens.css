@@ -16,7 +16,7 @@
 }
 
 :root {
-	color-scheme: light;
+	color-scheme: light dark;
 
 	--site-ground: #ffffff;
 	--site-panel: #ffffff;
@@ -96,4 +96,22 @@
 	--motion-reveal-blur: 0.14rem;
 	--surface-shadow: 0 1.5rem 4rem rgb(0 0 0 / 0.035);
 	--media-shadow: 0 1.25rem 3.5rem rgb(0 0 0 / 0.055);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		color-scheme: dark;
+
+		--site-ground: #111111;
+		--site-panel: #151515;
+		--site-surface: #1a1a1a;
+		--site-ink: #f5f5f5;
+		--site-muted: #a3a3a3;
+		--site-edge: #333333;
+		--site-edge-soft: #242424;
+		--site-accent: #f5f5f5;
+		--site-selection-bg: #f5f5f5;
+		--site-selection-fg: #111111;
+		--site-focus: #f5f5f5;
+	}
 }

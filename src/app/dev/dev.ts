@@ -1,25 +1,31 @@
-import type { App } from "@/app/core/app";
-import { createDevPane } from "@/app/dev/pane";
-import { onRouteAfterSwap } from "@/app/systems/route";
+import type { BooleanFlag } from "@/app/core/flags";
+import { createDevPane, type DevPane } from "@/app/dev/pane";
 
-type DevWindow = Window & {
-	__templateDevToolsDispose?: () => void;
+export type DevTools = {
+	sync: () => void;
+	dispose: () => void;
 };
 
-export const initDevTools = (app: App): void => {
-	void app;
-	const devWindow = window as DevWindow;
-	devWindow.__templateDevToolsDispose?.();
+export const createDevTools = (flag: BooleanFlag): DevTools => {
+	let pane: DevPane | undefined;
 
-	let disposePane = createDevPane();
-	const refreshPane = (): void => {
-		disposePane();
-		disposePane = createDevPane();
+	const dispose = (): void => {
+		pane?.dispose();
+		pane = undefined;
 	};
-	const disposeRoute = onRouteAfterSwap(refreshPane);
 
-	devWindow.__templateDevToolsDispose = () => {
-		disposeRoute();
-		disposePane();
+	const mount = (): void => {
+		if (pane?.element.isConnected) return;
+		dispose();
+		pane = createDevPane();
+	};
+
+	return {
+		sync(): void {
+			const state = flag.sync();
+			if (state.enabled) mount();
+			else dispose();
+		},
+		dispose,
 	};
 };

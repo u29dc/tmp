@@ -1,6 +1,6 @@
 import type { SiteImage } from "@/data/media";
 import type { SitePath } from "@/lib/seo";
-import { resolveSiteUrl } from "@/lib/site-url";
+import { resolveSiteNamespace, resolveSiteUrl } from "@/lib/origin";
 
 export type SiteConfig = {
 	name: string;
@@ -8,6 +8,7 @@ export type SiteConfig = {
 	title: string;
 	description: string;
 	url: string;
+	namespace: string;
 	updatedAt: Date;
 	lang: string;
 	locale: string;
@@ -32,12 +33,15 @@ export type SiteConfig = {
 	};
 };
 
+const siteUrl = resolveSiteUrl(import.meta.env.SITE_URL);
+
 export const SITE: SiteConfig = {
 	name: "Website Template",
 	shortName: "Template",
 	title: "Website Template",
 	description: "Placeholder architecture scaffold.",
-	url: resolveSiteUrl(import.meta.env.SITE_URL),
+	url: siteUrl,
+	namespace: resolveSiteNamespace(siteUrl, import.meta.env.SITE_NAMESPACE),
 	updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 	lang: "en-GB",
 	locale: "en_GB",

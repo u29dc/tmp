@@ -2,4 +2,5 @@
 
 interface ImportMetaEnv {
 	readonly SITE_URL?: string;
+	readonly SITE_NAMESPACE?: string;
 }

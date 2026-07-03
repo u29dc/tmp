@@ -185,6 +185,29 @@
 			transparent
 		);
 	}
+
+	/* Controls */
+	[data-controls-pane="true"] {
+		@apply fixed overflow-auto select-none;
+		inset-block-start: max(0.75rem, env(safe-area-inset-top));
+		inset-inline-end: max(0.75rem, env(safe-area-inset-right));
+		z-index: 2147483000;
+		inline-size: min(20rem, calc(100vw - 1.5rem));
+		max-block-size: calc(100dvh - 1.5rem);
+		overscroll-behavior: contain;
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+		-webkit-user-select: none;
+	}
+
+	[data-controls-pane="true"]::-webkit-scrollbar {
+		@apply hidden;
+	}
+
+	[data-controls-pane="true"] .tp-rotv {
+		backdrop-filter: blur(18px);
+		-webkit-backdrop-filter: blur(18px);
+	}
 }
 
 @media (hover: hover) and (pointer: fine) {

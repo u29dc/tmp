@@ -1,18 +1,28 @@
-import { resetSettings, SETTING_BOUNDS, settings, type ThemeColors } from "@/app/core/settings";
+import { clearSettingsDraft, scheduleSettingsDraftSave } from "@/app/core/draft";
+import {
+	createSettingsPatch,
+	resetSettings,
+	SETTING_BOUNDS,
+	settings,
+	type ThemeColors,
+} from "@/app/core/settings";
 import { applyScrollSettings } from "@/app/systems/scroll";
 import { applyThemeSettings, onThemeChange } from "@/app/systems/theme";
 import { setDataset } from "@/app/utils/dom";
 import { Pane, type FolderApi } from "tweakpane";
 import { applyDevPaneTheme } from "@/app/dev/theme";
 
-const STYLE_ID = "template-dev-pane-style";
 const COPY_SETTINGS_TITLE = "Copy settings";
 const COPY_SETTINGS_SUCCESS_TITLE = "Copied JSON";
 const COPY_SETTINGS_ERROR_TITLE = "Copy failed";
 const COPY_TITLE_RESET_MS = 1600;
 
-export const createDevPane = (): (() => void) => {
-	ensureDevPaneStyle();
+export type DevPane = {
+	readonly element: HTMLElement;
+	dispose: () => void;
+};
+
+export const createDevPane = (): DevPane => {
 	const container = createContainer();
 	document.body.append(container);
 	applyAllSettings(container);
@@ -28,17 +38,39 @@ export const createDevPane = (): (() => void) => {
 	addScrollControls(pane);
 	addMotionControls(pane);
 	addDebugControls(pane);
-	const disposeActionControls = addActionControls(pane, container);
 
-	const handleChange = (): void => applyAllSettings(container);
+	let suppressDraftSave = false;
+	const suppressDraftSaveUntilNextTask = (): void => {
+		suppressDraftSave = true;
+		window.setTimeout(() => {
+			suppressDraftSave = false;
+		}, 0);
+	};
+
+	const disposeActionControls = addActionControls(
+		pane,
+		container,
+		suppressDraftSaveUntilNextTask,
+	);
+
+	const handleChange = (): void => {
+		applyAllSettings(container);
+		if (!suppressDraftSave) scheduleSettingsDraftSave();
+	};
 	pane.on("change", handleChange);
 	const disposeThemeChange = onThemeChange(() => applyDevPaneTheme(container));
 
-	return () => {
-		disposeThemeChange();
-		disposeActionControls();
-		pane.dispose();
-		container.remove();
+	let disposed = false;
+	return {
+		element: container,
+		dispose: () => {
+			if (disposed) return;
+			disposed = true;
+			disposeThemeChange();
+			disposeActionControls();
+			pane.dispose();
+			container.remove();
+		},
 	};
 };
 
@@ -132,7 +164,11 @@ const addDebugControls = (pane: Pane): void => {
 	folder.addBinding(settings.debug, "showScrollState", { label: "Scroll state" });
 };
 
-const addActionControls = (pane: Pane, container: HTMLElement): (() => void) => {
+const addActionControls = (
+	pane: Pane,
+	container: HTMLElement,
+	suppressDraftSaveUntilNextTask: () => void,
+): (() => void) => {
 	const folder = pane.addFolder({ title: "Actions", expanded: false });
 	const copyButton = folder.addButton({ title: COPY_SETTINGS_TITLE });
 	let copyTitleReset: number | undefined;
@@ -154,6 +190,8 @@ const addActionControls = (pane: Pane, container: HTMLElement): (() => void) => 
 	});
 
 	folder.addButton({ title: "Reset settings" }).on("click", () => {
+		suppressDraftSaveUntilNextTask();
+		clearSettingsDraft();
 		resetSettings();
 		applyAllSettings(container);
 		pane.refresh();
@@ -165,7 +203,14 @@ const addActionControls = (pane: Pane, container: HTMLElement): (() => void) => 
 };
 
 const copySettingsToClipboard = async (): Promise<void> => {
-	const payload = `${JSON.stringify(settings, null, 2)}\n`;
+	const payload = `${JSON.stringify(
+		{
+			settings,
+			patch: createSettingsPatch(),
+		},
+		null,
+		2,
+	)}\n`;
 
 	if (!navigator.clipboard || !window.isSecureContext)
 		throw new Error("Clipboard API unavailable.");
@@ -188,40 +233,8 @@ const applyDebugSettings = (): void => {
 
 const createContainer = (): HTMLElement => {
 	const container = document.createElement("aside");
-	setDataset(container, "devPane", "true");
+	setDataset(container, "controlsPane", "true");
 	setDataset(container, "nativeScroll", "true");
 	container.setAttribute("aria-label", "Runtime controls");
 	return container;
-};
-
-const ensureDevPaneStyle = (): void => {
-	if (document.getElementById(STYLE_ID)) return;
-	const style = document.createElement("style");
-	style.id = STYLE_ID;
-	style.textContent = `
-		[data-dev-pane='true'] {
-			position: fixed;
-			inset-block-start: max(0.75rem, env(safe-area-inset-top));
-			inset-inline-end: max(0.75rem, env(safe-area-inset-right));
-			z-index: 2147483000;
-			inline-size: min(20rem, calc(100vw - 1.5rem));
-			max-block-size: calc(100dvh - 1.5rem);
-			overflow: auto;
-			overscroll-behavior: contain;
-			scrollbar-width: none;
-			user-select: none;
-			-ms-overflow-style: none;
-			-webkit-user-select: none;
-		}
-
-		[data-dev-pane='true']::-webkit-scrollbar {
-			display: none;
-		}
-
-		[data-dev-pane='true'] .tp-rotv {
-			backdrop-filter: blur(18px);
-			-webkit-backdrop-filter: blur(18px);
-		}
-	`;
-	document.head.append(style);
 };

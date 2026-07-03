@@ -3,6 +3,7 @@ import '@/styles/app.css';
 import { mergeImage, type SiteImageOverride } from '@/data/media';
 import { getPageByPath } from '@/data/pages';
 import { SITE } from '@/data/site';
+import { createDefaultSettings } from '@/app/core/settings';
 import { absoluteSiteUrl } from '@/lib/seo';
 import Router from '@/app/systems/router.astro';
 
@@ -32,10 +33,28 @@ const canonicalUrl = absoluteSiteUrl(canonicalPath ?? Astro.url.pathname);
 const image = mergeImage(SITE.ogImage, page?.image, props.image);
 const ogImageUrl = absoluteSiteUrl(image.path);
 const robots = noindex ? 'noindex, nofollow' : 'index, follow';
+const defaultTheme = createDefaultSettings().theme;
+const themeSettings = {
+	mode: defaultTheme.mode,
+	light: {
+		ground: defaultTheme.light.ground,
+		ink: defaultTheme.light.ink,
+	},
+	dark: {
+		ground: defaultTheme.dark.ground,
+		ink: defaultTheme.dark.ink,
+	},
+};
 ---
 
 <!doctype html>
-<html lang={SITE.lang} data-runtime="pending">
+<html
+	lang={SITE.lang}
+	data-runtime="pending"
+	data-site-namespace={SITE.namespace}
+	data-controls-default={import.meta.env.DEV ? 'true' : 'false'}
+	data-theme-settings={JSON.stringify(themeSettings)}
+>
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -49,6 +68,7 @@ const robots = noindex ? 'noindex, nofollow' : 'index, follow';
 		<meta name="robots" content={robots} />
 		<meta name="theme-color" content={SITE.themeColorLight} media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content={SITE.themeColorDark} media="(prefers-color-scheme: dark)" />
+		<script is:inline src="/boot.js"></script>
 		<link rel="canonical" href={canonicalUrl} />
 		<link rel="alternate" type="application/rss+xml" href={SITE.feeds.rss} title={`${SITE.name} RSS`} />
 		<link rel="alternate" type="application/feed+json" href={SITE.feeds.json} title={`${SITE.name} JSON Feed`} />

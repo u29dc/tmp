@@ -49,7 +49,12 @@ export type AppSettings = {
 	};
 };
 
-type QueryValue = string | true;
+export type SettingsValue = boolean | number | string;
+export type SettingsPatch = Record<string, SettingsValue>;
+
+type SettingReadOptions = {
+	validateCrossFields?: boolean;
+};
 
 export type NumberSettingBounds = {
 	min: number;
@@ -201,20 +206,56 @@ export const applyQuerySettings = (search?: string): void => {
 	}
 };
 
-const setSettingByPath = (target: AppSettings, path: string, value: QueryValue): void => {
+export const createSettingsPatch = (): SettingsPatch => {
+	const patch: SettingsPatch = {};
+	collectSettingsPatch("", settings, createDefaultSettings(), patch);
+	return patch;
+};
+
+export const applySettingsPatch = (patch: unknown): void => {
+	if (!isRecord(patch)) return;
+	const candidate = cloneSettings(settings);
+	let changed = false;
+	for (const [path, value] of Object.entries(patch)) {
+		if (!isSettingsValue(value)) continue;
+		changed =
+			setSettingByPath(candidate, path, value, {
+				validateCrossFields: false,
+			}) || changed;
+	}
+	if (!changed || !isSettingsCandidateValid(candidate)) return;
+	mergeRecords(settings, candidate);
+};
+
+const setSettingByPath = (
+	target: AppSettings,
+	path: string,
+	value: SettingsValue,
+	options: SettingReadOptions = {},
+): boolean => {
 	const parts = path.split(".");
-	if (parts.some((part) => part.length === 0)) return;
+	if (parts.some((part) => part.length === 0)) return false;
 	let cursor: unknown = target;
 	for (const part of parts.slice(0, -1)) {
-		if (!isRecord(cursor) || !(part in cursor)) return;
+		if (!isRecord(cursor) || !(part in cursor)) return false;
 		cursor = cursor[part];
 	}
 	const key = parts.at(-1);
-	if (!key || !isRecord(cursor) || !(key in cursor)) return;
+	if (!key || !isRecord(cursor) || !(key in cursor)) return false;
 	const previous = cursor[key];
-	if (typeof previous === "boolean") cursor[key] = readBoolean(value, previous);
-	else if (typeof previous === "number") cursor[key] = readNumber(path, value, previous, target);
-	else if (typeof previous === "string") cursor[key] = readString(path, value, previous);
+	let next: SettingsValue | undefined;
+	if (typeof previous === "boolean") next = readBoolean(value);
+	else if (typeof previous === "number") next = readNumber(path, value, target, options);
+	else if (typeof previous === "string") next = readString(path, value);
+	if (next === undefined) return false;
+	cursor[key] = next;
+	return true;
+};
+
+const cloneSettings = (source: AppSettings): AppSettings => {
+	const clone = createDefaultSettings();
+	mergeRecords(clone, source);
+	return clone;
 };
 
 const mergeRecords = (target: unknown, source: unknown): void => {
@@ -228,39 +269,43 @@ const mergeRecords = (target: unknown, source: unknown): void => {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-	Boolean(value) && typeof value === "object";
+	Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
-const readBoolean = (value: QueryValue, fallback: boolean): boolean => {
-	if (value === true) return true;
+const isSettingsValue = (value: unknown): value is SettingsValue =>
+	typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+
+const readBoolean = (value: SettingsValue): boolean | undefined => {
+	if (typeof value === "boolean") return value;
 	if (value === "0" || value === "false" || value === "off") return false;
 	if (value === "1" || value === "true" || value === "on") return true;
-	return fallback;
+	return undefined;
 };
 
 const readNumber = (
 	path: string,
-	value: QueryValue,
-	fallback: number,
+	value: SettingsValue,
 	target: AppSettings,
-): number => {
-	if (value === true) return fallback;
-	const raw = value.trim();
-	if (!NUMBER_PATTERN.test(raw)) return fallback;
+	options: SettingReadOptions,
+): number | undefined => {
+	if (typeof value === "boolean") return undefined;
+	const raw = typeof value === "number" ? String(value) : value.trim();
+	if (!NUMBER_PATTERN.test(raw)) return undefined;
 	const parsed = Number(raw);
-	if (!Number.isFinite(parsed)) return fallback;
+	if (!Number.isFinite(parsed)) return undefined;
 	const bounds = NUMBER_SETTING_BOUNDS[path];
-	if (!bounds || parsed < bounds.min || parsed > bounds.max) return fallback;
-	if (!isCrossFieldNumberValid(path, parsed, target)) return fallback;
+	if (!bounds || parsed < bounds.min || parsed > bounds.max) return undefined;
+	if (options.validateCrossFields !== false && !isCrossFieldNumberValid(path, parsed, target))
+		return undefined;
 	return parsed;
 };
 
-const readString = (path: string, value: QueryValue, fallback: string): string => {
-	if (value === true) return fallback;
+const readString = (path: string, value: SettingsValue): string | undefined => {
+	if (typeof value !== "string") return undefined;
 	const candidate = value.trim();
-	if (!candidate) return fallback;
-	if (path === "theme.mode") return isThemeMode(candidate) ? candidate : fallback;
-	if (THEME_COLOR_KEYS.has(path)) return isColorValue(candidate) ? candidate : fallback;
-	return fallback;
+	if (!candidate) return undefined;
+	if (path === "theme.mode") return isThemeMode(candidate) ? candidate : undefined;
+	if (THEME_COLOR_KEYS.has(path)) return isColorValue(candidate) ? candidate : undefined;
+	return undefined;
 };
 
 const isThemeMode = (value: string): value is ThemeMode =>
@@ -278,4 +323,29 @@ const isCrossFieldNumberValid = (path: string, value: number, target: AppSetting
 	if (path === "device.maxDprHigh") return value >= target.device.maxDprMedium;
 	if (path === "device.maxDprMedium") return value <= target.device.maxDprHigh;
 	return true;
+};
+
+const isSettingsCandidateValid = (candidate: AppSettings): boolean =>
+	candidate.device.smallWidth < candidate.device.largeWidth &&
+	candidate.device.maxDprMedium <= candidate.device.maxDprHigh;
+
+const collectSettingsPatch = (
+	path: string,
+	current: unknown,
+	defaultValue: unknown,
+	patch: SettingsPatch,
+): void => {
+	if (isRecord(current) && isRecord(defaultValue)) {
+		for (const key of Object.keys(defaultValue)) {
+			collectSettingsPatch(
+				path ? `${path}.${key}` : key,
+				current[key],
+				defaultValue[key],
+				patch,
+			);
+		}
+		return;
+	}
+	if (!path || !isSettingsValue(current) || !isSettingsValue(defaultValue)) return;
+	if (current !== defaultValue) patch[path] = current;
 };
