@@ -8,24 +8,33 @@
 		"url": "git@github.com:u29dc/tmp.git"
 	},
 	"scripts": {
+		"commitlint": "bunx commitlint --edit",
 		"prepare": "husky",
 		"dev": "bunx astro dev",
 		"build": "bun run astro:build && bun run util:minify",
 		"preview": "bunx astro preview",
+
+		"deploy": "bun run util:check && bunx wrangler deploy",
+		"deploy:dry": "bun run build && bunx wrangler deploy --dry-run",
+		"cf:dev": "bun run build && bunx wrangler dev",
+		"cf:types": "bunx wrangler types wrangler.d.ts --include-runtime false",
+		"cf:types:check": "bunx wrangler types wrangler.d.ts --include-runtime false --check",
+
 		"astro:build": "bunx astro build",
 		"astro:check": "bunx astro check",
-		"commitlint": "bunx commitlint --edit",
-		"util:clean": "rm -rf .astro dist node_modules/.vite *.tsbuildinfo",
+
+		"util:clean": "rm -rf .astro dist node_modules/.vite .wrangler *.tsbuildinfo",
 		"util:format": "bunx oxfmt . --write --no-error-on-unmatched-pattern && bunx oxfmt . --check --no-error-on-unmatched-pattern",
 		"util:lint": "bunx oxlint src scripts astro.config.ts commitlint.config.js lint-staged.config.js --fix --deny-warnings --no-error-on-unmatched-pattern",
 		"util:minify": "bun scripts/minify.ts",
-		"util:types": "bun run astro:check && bunx tsc --noEmit --project tsconfig.scripts.json",
+		"util:types": "bun run astro:check && bunx tsc --noEmit --project tsconfig.scripts.json && bunx tsc --noEmit --project tsconfig.cloudflare.json && bun run cf:types:check",
 		"util:check": "bun run util:format && bun run util:lint && bun run util:types && bun run build"
 	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.9",
 		"@astrojs/cloudflare": "^14.1.1",
 		"@astrojs/mdx": "^7.0.2",
+		"@cloudflare/workers-types": "^5.20260703.1",
 		"@commitlint/cli": "^21.2.0",
 		"@commitlint/config-conventional": "^21.2.0",
 		"@minify-html/node": "^0.18.1",
@@ -41,6 +50,7 @@
 		"rolldown": "^1.1.4",
 		"tailwindcss": "^4.3.2",
 		"tweakpane": "^4.0.5",
-		"typescript": "^6.0.3"
+		"typescript": "^6.0.3",
+		"wrangler": "^4.107.0"
 	}
 }

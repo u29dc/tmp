@@ -10,6 +10,7 @@ const siteUrl = new URL(site);
 export default defineConfig({
 	site,
 	adapter: cloudflare({
+		configPath: "./wrangler.jsonc",
 		imageService: "passthrough",
 		prerenderEnvironment: "workerd",
 	}),

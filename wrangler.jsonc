@@ -1,0 +1,21 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "tmp",
+	"compatibility_date": "2026-07-03",
+	"compatibility_flags": ["nodejs_compat"],
+	"workers_dev": true,
+	"preview_urls": true,
+	"assets": {
+		"html_handling": "auto-trailing-slash",
+		"not_found_handling": "404-page",
+	},
+	"kv_namespaces": [
+		{
+			"binding": "SESSION",
+		},
+	],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+	},
+}
