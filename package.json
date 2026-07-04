@@ -31,7 +31,7 @@
 		"@astrojs/check": "^0.9.9",
 		"@astrojs/cloudflare": "^14.1.1",
 		"@astrojs/mdx": "^7.0.2",
-		"@cloudflare/workers-types": "^5.20260703.1",
+		"@cloudflare/workers-types": "^5.20260704.1",
 		"@commitlint/cli": "^21.2.0",
 		"@commitlint/config-conventional": "^21.2.0",
 		"@minify-html/node": "^0.18.1",
