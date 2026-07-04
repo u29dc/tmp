@@ -40,6 +40,7 @@ type ScrollElement = {
 	cssProgress: boolean;
 	callEvent: string | null;
 	enableTouchSpeed: boolean;
+	transformAllowed: boolean;
 	top: number;
 	height: number;
 	intersectionStart: number;
@@ -255,6 +256,7 @@ class Scroll extends BaseModule {
 			cssProgress: element.dataset["scrollCssProgress"] !== undefined,
 			callEvent: element.dataset["scrollCall"] ?? null,
 			enableTouchSpeed: element.dataset["scrollEnableTouchSpeed"] !== undefined,
+			transformAllowed: false,
 			top: 0,
 			height: 0,
 			intersectionStart: 0,
@@ -484,19 +486,22 @@ class Scroll extends BaseModule {
 
 	private writeElements(frame: Frame, stateChanged: boolean): void {
 		for (const item of this.elements) {
+			const transformAllowed = canTransformElement(item, frame);
+			const transformCapabilityChanged = item.transformAllowed !== transformAllowed;
 			if (
 				!stateChanged &&
 				!this.needsMeasure &&
 				!item.range.needsShow &&
-				!item.range.needsHide
+				!item.range.needsHide &&
+				!transformCapabilityChanged
 			) {
 				continue;
 			}
-			this.writeElementState(item, frame);
+			this.writeElementState(item, frame, transformAllowed);
 		}
 	}
 
-	private writeElementState(item: ScrollElement, frame: Frame): void {
+	private writeElementState(item: ScrollElement, frame: Frame, transformAllowed: boolean): void {
 		const scrollState = item.range.isActive
 			? "visible"
 			: item.range.rawProgress <= 0
@@ -515,7 +520,7 @@ class Scroll extends BaseModule {
 		if ((item.range.needsShow || item.range.needsHide) && item.callEvent) {
 			this.dispatchScrollCall(item);
 		}
-		this.writeElementTransform(item, frame);
+		this.writeElementTransform(item, frame, transformAllowed);
 	}
 
 	private writeScrollPosition(): void {
@@ -536,13 +541,14 @@ class Scroll extends BaseModule {
 		);
 	}
 
-	private writeElementTransform(item: ScrollElement, frame: Frame): void {
+	private writeElementTransform(
+		item: ScrollElement,
+		frame: Frame,
+		transformAllowed: boolean,
+	): void {
+		item.transformAllowed = transformAllowed;
 		if (item.speed === null) return;
-		const allowTransform =
-			!frame.profile.reducedMotion &&
-			(!frame.profile.coarsePointer || item.enableTouchSpeed) &&
-			item.interactive;
-		if (!allowTransform) {
+		if (!transformAllowed) {
 			removeStyleProperty(item.element, "transform");
 			return;
 		}
@@ -658,6 +664,12 @@ const hasStateChanged = (previous: ScrollState, next: ScrollState): boolean =>
 	previous.isSmoothEnabled !== next.isSmoothEnabled ||
 	previous.direction !== next.direction ||
 	previous.source !== next.source;
+
+const canTransformElement = (item: ScrollElement, frame: Frame): boolean =>
+	item.speed !== null &&
+	!frame.profile.reducedMotion &&
+	(!frame.profile.coarsePointer || item.enableTouchSpeed) &&
+	item.interactive;
 
 class ScrollAnimator {
 	value = 0;

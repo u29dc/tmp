@@ -201,9 +201,12 @@ export const applyQuerySettings = (search?: string): void => {
 	const query = search ?? (typeof window === "undefined" ? "" : window.location.search);
 	if (!query || typeof URLSearchParams === "undefined") return;
 	const entries = new URLSearchParams(query);
-	for (const [key, value] of entries.entries()) {
-		setSettingByPath(settings, key, value === "" ? true : value);
-	}
+	applySettingsEntries(
+		Array.from(entries.entries(), ([key, value]): readonly [string, SettingsValue] => [
+			key,
+			value === "" ? true : value,
+		]),
+	);
 };
 
 export const createSettingsPatch = (): SettingsPatch => {
@@ -214,9 +217,13 @@ export const createSettingsPatch = (): SettingsPatch => {
 
 export const applySettingsPatch = (patch: unknown): void => {
 	if (!isRecord(patch)) return;
+	applySettingsEntries(Object.entries(patch));
+};
+
+const applySettingsEntries = (entries: Iterable<readonly [string, unknown]>): void => {
 	const candidate = cloneSettings(settings);
 	let changed = false;
-	for (const [path, value] of Object.entries(patch)) {
+	for (const [path, value] of entries) {
 		if (!isSettingsValue(value)) continue;
 		changed =
 			setSettingByPath(candidate, path, value, {
