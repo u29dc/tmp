@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: base-uri 'self'; default-src 'self'; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: blob:; manifest-src 'self'; media-src 'self'; object-src 'none'; script-src 'self'; script-src-attr 'none'; script-src-elem 'self'; style-src 'self' 'sha256-WU+tMAooBGOdJsdyBqbrrPu4TVMhi7m8OLZ9L4tWidA='; style-src-attr 'none'; style-src-elem 'self' 'sha256-WU+tMAooBGOdJsdyBqbrrPu4TVMhi7m8OLZ9L4tWidA='; worker-src 'self'; upgrade-insecure-requests
+  Content-Security-Policy: base-uri 'self'; default-src 'self'; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: blob:; manifest-src 'self'; media-src 'self'; object-src 'none'; script-src 'self'; script-src-attr 'none'; script-src-elem 'self'; style-src 'self' 'sha256-WU+tMAooBGOdJsdyBqbrrPu4TVMhi7m8OLZ9L4tWidA=' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='; style-src-attr 'none'; style-src-elem 'self' 'sha256-WU+tMAooBGOdJsdyBqbrrPu4TVMhi7m8OLZ9L4tWidA=' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='; worker-src 'self'; upgrade-insecure-requests
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
