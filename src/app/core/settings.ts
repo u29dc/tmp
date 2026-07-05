@@ -210,9 +210,16 @@ export const applyQuerySettings = (search?: string): void => {
 	applySettingsEntries(Array.from(entries.entries(), ([key, value]): readonly [string, SettingsValue] => [key, value === "" ? true : value]));
 };
 
-export const createSettingsPatch = (): SettingsPatch => {
+export const createSettingsPatch = (paths?: Iterable<string>): SettingsPatch => {
 	const patch: SettingsPatch = {};
-	collectSettingsPatch("", settings, createDefaultSettings(), patch);
+	const defaults = createDefaultSettings();
+	if (paths === undefined) {
+		collectSettingsPatch("", settings, defaults, patch);
+		return patch;
+	}
+	for (const path of new Set(paths)) {
+		collectSettingsPathPatch(path, settings, defaults, patch);
+	}
 	return patch;
 };
 
@@ -320,6 +327,24 @@ const isCrossFieldNumberValid = (path: string, value: number, target: AppSetting
 };
 
 const isSettingsCandidateValid = (candidate: AppSettings): boolean => candidate.device.smallWidth < candidate.device.largeWidth && candidate.device.maxDprMedium <= candidate.device.maxDprHigh;
+
+const readSettingsPathValue = (source: AppSettings, path: string): SettingsValue | undefined => {
+	const parts = path.split(".");
+	if (parts.some((part) => part.length === 0)) return undefined;
+	let cursor: unknown = source;
+	for (const part of parts) {
+		if (!isRecord(cursor) || !(part in cursor)) return undefined;
+		cursor = cursor[part];
+	}
+	return isSettingsValue(cursor) ? cursor : undefined;
+};
+
+const collectSettingsPathPatch = (path: string, current: AppSettings, defaultValue: AppSettings, patch: SettingsPatch): void => {
+	const currentValue = readSettingsPathValue(current, path);
+	const defaultPathValue = readSettingsPathValue(defaultValue, path);
+	if (currentValue === undefined || defaultPathValue === undefined || currentValue === defaultPathValue) return;
+	patch[path] = currentValue;
+};
 
 const collectSettingsPatch = (path: string, current: unknown, defaultValue: unknown, patch: SettingsPatch): void => {
 	if (isRecord(current) && isRecord(defaultValue)) {

@@ -55,15 +55,15 @@ export const createDevPane = (): DevPane => {
 		}, 0);
 	};
 
-	const handleChange = (): void => {
+	const handleChange = (path?: string): void => {
 		applyAllSettings();
 		cfg.setTheme(settings.theme.mode);
-		if (!suppressDraftSave) scheduleSettingsDraftSave();
+		if (!suppressDraftSave && path) scheduleSettingsDraftSave(path);
 	};
 
-	const bind = <T>(control: Control<T>): Control<T> => {
+	const bind = <T>(control: Control<T>, path?: string): Control<T> => {
 		boundControls.add(control);
-		control.on("change", handleChange);
+		control.on("change", () => handleChange(path));
 		return control;
 	};
 	const refreshBoundControls = (): void => {
@@ -112,21 +112,22 @@ const addThemeControls = (pane: Pane, bind: Binder): void => {
 				{ label: "Dark", value: "dark" },
 			],
 		}),
+		"theme.mode",
 	);
-	addColorControls(folder.folder("Light", { collapsed: true }), settings.theme.light, bind);
-	addColorControls(folder.folder("Dark", { collapsed: true }), settings.theme.dark, bind);
+	addColorControls(folder.folder("Light", { collapsed: true }), settings.theme.light, "theme.light", bind);
+	addColorControls(folder.folder("Dark", { collapsed: true }), settings.theme.dark, "theme.dark", bind);
 };
 
-const addColorControls = (folder: Pane, colors: ThemeColors, bind: Binder): void => {
-	bind(folder.color(colors, "ground", { label: "Ground" }));
-	bind(folder.color(colors, "panel", { label: "Panel" }));
-	bind(folder.color(colors, "surface", { label: "Surface" }));
-	bind(folder.color(colors, "ink", { label: "Ink" }));
-	bind(folder.color(colors, "muted", { label: "Muted" }));
-	bind(folder.color(colors, "edge", { label: "Edge" }));
-	bind(folder.color(colors, "edgeSoft", { label: "Edge soft" }));
-	bind(folder.color(colors, "accent", { label: "Accent" }));
-	bind(folder.color(colors, "focus", { label: "Focus" }));
+const addColorControls = (folder: Pane, colors: ThemeColors, path: string, bind: Binder): void => {
+	bind(folder.color(colors, "ground", { label: "Ground" }), `${path}.ground`);
+	bind(folder.color(colors, "panel", { label: "Panel" }), `${path}.panel`);
+	bind(folder.color(colors, "surface", { label: "Surface" }), `${path}.surface`);
+	bind(folder.color(colors, "ink", { label: "Ink" }), `${path}.ink`);
+	bind(folder.color(colors, "muted", { label: "Muted" }), `${path}.muted`);
+	bind(folder.color(colors, "edge", { label: "Edge" }), `${path}.edge`);
+	bind(folder.color(colors, "edgeSoft", { label: "Edge soft" }), `${path}.edgeSoft`);
+	bind(folder.color(colors, "accent", { label: "Accent" }), `${path}.accent`);
+	bind(folder.color(colors, "focus", { label: "Focus" }), `${path}.focus`);
 };
 
 const addInteractionControls = (pane: Pane, bind: Binder): void => {
@@ -136,53 +137,61 @@ const addInteractionControls = (pane: Pane, bind: Binder): void => {
 			label: "Hover lambda",
 			...SETTING_BOUNDS.interaction.ratioLambda,
 		}),
+		"interaction.ratioLambda",
 	);
 	bind(
 		folder.numberSlider(settings.interaction, "pressLambda", {
 			label: "Press lambda",
 			...SETTING_BOUNDS.interaction.pressLambda,
 		}),
+		"interaction.pressLambda",
 	);
 	bind(
 		folder.numberSlider(settings.interaction, "pressScale", {
 			label: "Press scale",
 			...SETTING_BOUNDS.interaction.pressScale,
 		}),
+		"interaction.pressScale",
 	);
 	bind(
 		folder.numberSlider(settings.interaction, "settleEpsilon", {
 			label: "Settle epsilon",
 			...SETTING_BOUNDS.interaction.settleEpsilon,
 		}),
+		"interaction.settleEpsilon",
 	);
 };
 
 const addScrollControls = (pane: Pane, bind: Binder): void => {
 	const folder = pane.folder("Scroll");
-	bind(folder.toggle(settings.scroll, "smoothEnabled", { label: "Smooth" }));
+	bind(folder.toggle(settings.scroll, "smoothEnabled", { label: "Smooth" }), "scroll.smoothEnabled");
 	bind(
 		folder.numberSlider(settings.scroll, "lambda", {
 			label: "Lambda",
 			...SETTING_BOUNDS.scroll.lambda,
 		}),
+		"scroll.lambda",
 	);
 	bind(
 		folder.numberSlider(settings.scroll, "settlePx", {
 			label: "Settle px",
 			...SETTING_BOUNDS.scroll.settlePx,
 		}),
+		"scroll.settlePx",
 	);
 	bind(
 		folder.numberSlider(settings.scroll, "wheelMultiplier", {
 			label: "Wheel",
 			...SETTING_BOUNDS.scroll.wheelMultiplier,
 		}),
+		"scroll.wheelMultiplier",
 	);
 	bind(
 		folder.numberSlider(settings.scroll, "pageMultiplier", {
 			label: "Page",
 			...SETTING_BOUNDS.scroll.pageMultiplier,
 		}),
+		"scroll.pageMultiplier",
 	);
 };
 
@@ -193,27 +202,30 @@ const addMotionControls = (pane: Pane, bind: Binder): void => {
 			label: "Route exit",
 			...SETTING_BOUNDS.motion.routeExitMs,
 		}),
+		"motion.routeExitMs",
 	);
 	bind(
 		folder.numberSlider(settings.motion, "routeEnterMs", {
 			label: "Route enter",
 			...SETTING_BOUNDS.motion.routeEnterMs,
 		}),
+		"motion.routeEnterMs",
 	);
 	bind(
 		folder.numberSlider(settings.motion, "routeBufferMs", {
 			label: "Route buffer",
 			...SETTING_BOUNDS.motion.routeBufferMs,
 		}),
+		"motion.routeBufferMs",
 	);
 };
 
 const addDebugControls = (pane: Pane, bind: Binder): void => {
 	const folder = pane.folder("Debug", { collapsed: true });
-	bind(folder.toggle(settings.runtime, "continuous", { label: "Loop" }));
-	bind(folder.toggle(settings.debug, "enabled", { label: "Enabled" }));
-	bind(folder.toggle(settings.debug, "showFrameStats", { label: "Frame stats" }));
-	bind(folder.toggle(settings.debug, "showScrollState", { label: "Scroll state" }));
+	bind(folder.toggle(settings.runtime, "continuous", { label: "Loop" }), "runtime.continuous");
+	bind(folder.toggle(settings.debug, "enabled", { label: "Enabled" }), "debug.enabled");
+	bind(folder.toggle(settings.debug, "showFrameStats", { label: "Frame stats" }), "debug.showFrameStats");
+	bind(folder.toggle(settings.debug, "showScrollState", { label: "Scroll state" }), "debug.showScrollState");
 };
 
 const addTelemetryControls = (pane: Pane): Profiler => {
@@ -329,4 +341,4 @@ const createContainer = (): HTMLElement => {
 	return container;
 };
 
-type Binder = <T>(control: Control<T>) => Control<T>;
+type Binder = <T>(control: Control<T>, path?: string) => Control<T>;

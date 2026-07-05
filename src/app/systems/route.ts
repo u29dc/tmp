@@ -259,7 +259,17 @@ class Route extends BaseModule {
 			from: event.fromPathname,
 			to: event.toPathname,
 		});
-		await Promise.all(Array.from(this.preparationHandlers).map((handler) => Promise.resolve(handler(event))));
+		await Promise.all(
+			Array.from(this.preparationHandlers).map(async (handler) => {
+				if (!this.isActiveTransition(event.id) || event.signal.aborted) return;
+				try {
+					await handler(event);
+				} catch (error) {
+					if (event.signal.aborted || !this.isActiveTransition(event.id)) return;
+					this.reportError("route.preparation", error);
+				}
+			}),
+		);
 	}
 
 	private emitAbort(id: number): void {

@@ -12,8 +12,12 @@ type SettingsDraft = {
 
 let saveTimer: number | undefined;
 let pageHideBound = false;
+let baseDraftPatch: SettingsPatch = {};
+const dirtyDraftPaths = new Set<string>();
 
 export const loadSettingsDraft = (): void => {
+	baseDraftPatch = {};
+	dirtyDraftPaths.clear();
 	const raw = readDraftStorage();
 	if (raw === undefined) return;
 	const draft = parseSettingsDraft(raw);
@@ -21,15 +25,27 @@ export const loadSettingsDraft = (): void => {
 		clearSettingsDraft();
 		return;
 	}
+	baseDraftPatch = cloneSettingsPatch(draft.patch);
 	applySettingsPatch(draft.patch);
 };
 
 export const saveSettingsDraft = (): void => {
-	writeSettingsPatch(createSettingsPatch());
+	const nextPatch = cloneSettingsPatch(baseDraftPatch);
+	const dirtyPatch = createSettingsPatch(dirtyDraftPaths);
+	for (const path of dirtyDraftPaths) {
+		const nextValue = dirtyPatch[path];
+		if (nextValue !== undefined) nextPatch[path] = nextValue;
+		else delete nextPatch[path];
+	}
+	dirtyDraftPaths.clear();
+	baseDraftPatch = cloneSettingsPatch(nextPatch);
+	writeSettingsPatch(nextPatch);
 };
 
-export const scheduleSettingsDraftSave = (): void => {
+export const scheduleSettingsDraftSave = (path: string): void => {
 	if (typeof window === "undefined") return;
+	if (!path) return;
+	dirtyDraftPaths.add(path);
 	bindPageHideFlush();
 	clearSaveTimer();
 	saveTimer = window.setTimeout(() => {
@@ -39,13 +55,15 @@ export const scheduleSettingsDraftSave = (): void => {
 };
 
 export const flushSettingsDraftSave = (): void => {
-	if (saveTimer === undefined) return;
+	if (saveTimer === undefined && dirtyDraftPaths.size === 0) return;
 	clearSaveTimer();
 	saveSettingsDraft();
 };
 
 export const clearSettingsDraft = (): void => {
 	clearSaveTimer();
+	baseDraftPatch = {};
+	dirtyDraftPaths.clear();
 	if (typeof window === "undefined") return;
 	try {
 		window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
@@ -53,6 +71,8 @@ export const clearSettingsDraft = (): void => {
 		// Storage can be unavailable in hardened browser contexts.
 	}
 };
+
+const cloneSettingsPatch = (patch: SettingsPatch): SettingsPatch => ({ ...patch });
 
 const writeSettingsPatch = (patch: SettingsPatch): void => {
 	if (typeof window === "undefined") return;
