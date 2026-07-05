@@ -2,9 +2,7 @@ import { PUBLIC_PAGES } from "@/data/pages";
 import { SITE } from "@/data/site";
 import { absoluteSiteUrl } from "@/lib/seo";
 
-const routeLines = PUBLIC_PAGES.map(
-	(page) => `- ${page.title}: ${absoluteSiteUrl(page.path)}`,
-).join("\n");
+const routeLines = PUBLIC_PAGES.map((page) => `- ${page.title}: ${absoluteSiteUrl(page.path)}`).join("\n");
 
 const body = [
 	`# ${SITE.name}`,

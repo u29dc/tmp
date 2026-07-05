@@ -44,11 +44,7 @@ class Theme extends BaseModule {
 		const colors = scheme === "dark" ? settings.theme.dark : settings.theme.light;
 		const key = JSON.stringify({ mode: settings.theme.mode, scheme, colors });
 		const root = document.documentElement;
-		if (
-			key === this.appliedKey &&
-			root === this.appliedRoot &&
-			hasAppliedTheme(root, scheme, colors)
-		) {
+		if (key === this.appliedKey && root === this.appliedRoot && hasAppliedTheme(root, scheme, colors)) {
 			return;
 		}
 		this.appliedKey = key;
@@ -75,8 +71,7 @@ class Theme extends BaseModule {
 	}
 
 	private readScheme(): ThemeScheme {
-		if (settings.theme.mode === "light" || settings.theme.mode === "dark")
-			return settings.theme.mode;
+		if (settings.theme.mode === "light" || settings.theme.mode === "dark") return settings.theme.mode;
 		return this.query?.matches ? "dark" : "light";
 	}
 
@@ -91,9 +86,7 @@ class Theme extends BaseModule {
 
 const hasAppliedTheme = (root: HTMLElement, scheme: ThemeScheme, colors: ThemeColors): boolean => {
 	const colorSchemeMeta = document.querySelector<HTMLMetaElement>("meta[name='color-scheme']");
-	const themeColorMeta = document.querySelector<HTMLMetaElement>(
-		"meta[name='theme-color'][data-runtime-theme-color]",
-	);
+	const themeColorMeta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-runtime-theme-color]");
 	return (
 		root.dataset["theme"] === scheme &&
 		root.dataset["themeMode"] === settings.theme.mode &&
@@ -125,9 +118,7 @@ const writeThemeMeta = (scheme: ThemeScheme, colors: ThemeColors): void => {
 		colorSchemeMeta.content = scheme;
 	}
 
-	let themeColorMeta = document.querySelector<HTMLMetaElement>(
-		"meta[name='theme-color'][data-runtime-theme-color]",
-	);
+	let themeColorMeta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-runtime-theme-color]");
 	if (!themeColorMeta) {
 		themeColorMeta = document.createElement("meta");
 		themeColorMeta.name = "theme-color";

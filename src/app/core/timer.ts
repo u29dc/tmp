@@ -55,7 +55,7 @@ const cancelTimer = (timer: TimerEntry): void => {
 	throwCleanupErrors(errors, `Failed to cancel timer "${timer.name}"`);
 };
 
-const cancelTimerSafe = (timer: TimerEntry): unknown | undefined => {
+const cancelTimerSafe = (timer: TimerEntry): unknown => {
 	try {
 		cancelTimer(timer);
 		return undefined;
@@ -73,18 +73,12 @@ export const setTimerScheduler = (scheduler: TimerScheduler): (() => void) => {
 	};
 };
 
-export const setTimer = (
-	name: string,
-	delayMs: number,
-	callback: () => void,
-	options?: { signal?: AbortSignal; onCancel?: () => void },
-): TimerHandle => {
+export const setTimer = (name: string, delayMs: number, callback: () => void, options?: { signal?: AbortSignal; onCancel?: () => void }): TimerHandle => {
 	if (options?.signal?.aborted) return inactiveTimer(name);
 
 	nextTimerId += 1;
 	const id = nextTimerId;
 	const dueAt = performance.now() + Math.max(0, delayMs);
-	let entry: TimerEntry;
 
 	const cancel = (): void => {
 		const timer = timers.get(id);
@@ -110,7 +104,7 @@ export const setTimer = (
 		Math.max(0, delayMs),
 	);
 
-	entry = {
+	const entry: TimerEntry = {
 		id,
 		name,
 		dueAt,
@@ -149,17 +143,16 @@ export const delayTimer = (name: string, delayMs: number, signal?: AbortSignal):
 	if (delayMs <= 0 || signal?.aborted) return Promise.resolve();
 
 	return new Promise((resolve) => {
-		let timer: TimerHandle | undefined;
 		let settled = false;
 		const settle = (): void => {
 			if (settled) return;
 			settled = true;
 			signal?.removeEventListener("abort", settle);
-			timer?.cancel();
+			timer.cancel();
 			resolve();
 		};
 
-		timer = setTimer(name, delayMs, settle, {
+		const timer = setTimer(name, delayMs, settle, {
 			...(signal ? { signal } : {}),
 			onCancel: settle,
 		});

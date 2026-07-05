@@ -22,8 +22,7 @@ export type WebPageSchemaInput = {
 
 const SCHEMA_CONTEXT = "https://schema.org";
 
-const compactSchema = (schema: SchemaNode): SchemaNode =>
-	Object.fromEntries(Object.entries(schema).filter(([, value]) => value !== undefined));
+const compactSchema = (schema: SchemaNode): SchemaNode => Object.fromEntries(Object.entries(schema).filter(([, value]) => value !== undefined));
 
 const imageSchema = (image: SiteImage): SchemaNode =>
 	compactSchema({
@@ -59,9 +58,7 @@ export const buildWebPageSchema = (page: WebPageSchemaInput): SchemaNode =>
 		dateModified: page.dateModified?.toISOString(),
 	});
 
-export const buildOrganizationSchema = (
-	organization?: OrganizationSchemaInput,
-): SchemaNode | undefined => {
+export const buildOrganizationSchema = (organization?: OrganizationSchemaInput): SchemaNode | undefined => {
 	if (!organization) return undefined;
 	return compactSchema({
 		"@type": "Organization",
@@ -78,5 +75,4 @@ export const buildSchemaGraph = (nodes: Array<SchemaNode | undefined>): SchemaNo
 	"@graph": nodes.filter((node): node is SchemaNode => Boolean(node)),
 });
 
-export const serializeSchema = (schema: SchemaNode): string =>
-	JSON.stringify(schema).replaceAll("<", "\\u003c");
+export const serializeSchema = (schema: SchemaNode): string => JSON.stringify(schema).replaceAll("<", "\\u003c");

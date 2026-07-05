@@ -1,5 +1,6 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+
 import { minify as minifyHtml } from "@minify-html/node";
 import { minifySync, parseSync } from "rolldown/utils";
 
@@ -28,27 +29,25 @@ async function directoryExists(directory: string): Promise<boolean> {
 		.catch(() => false);
 }
 
-async function collectTargets(
-	directory: string,
-	matches: (fileName: string) => boolean,
-	files: string[] = [],
-): Promise<string[]> {
+async function collectTargets(directory: string, matches: (fileName: string) => boolean, files: string[] = []): Promise<string[]> {
 	const entries = await readdir(directory, { withFileTypes: true });
 
-	for (const entry of entries) {
-		const entryPath = path.join(directory, entry.name);
+	await Promise.all(
+		entries.map(async (entry) => {
+			const entryPath = path.join(directory, entry.name);
 
-		if (entry.isDirectory()) {
-			await collectTargets(entryPath, matches, files);
-			continue;
-		}
+			if (entry.isDirectory()) {
+				await collectTargets(entryPath, matches, files);
+				return;
+			}
 
-		if (entry.isFile() && matches(entry.name)) {
-			files.push(entryPath);
-		}
-	}
+			if (entry.isFile() && matches(entry.name)) {
+				files.push(entryPath);
+			}
+		}),
+	);
 
-	return files.sort();
+	return files.toSorted();
 }
 
 async function collectScriptTargets(directory: string): Promise<string[]> {
@@ -122,9 +121,7 @@ function reportResults(label: string, results: FileResult[]): void {
 		console.log(`${result.path}: ${result.before} -> ${result.after} bytes (-${savedForFile})`);
 	}
 
-	console.log(
-		`Minified ${changed.length}/${results.length} ${label} files. ${before} -> ${after} bytes (-${saved}).`,
-	);
+	console.log(`Minified ${changed.length}/${results.length} ${label} files. ${before} -> ${after} bytes (-${saved}).`);
 }
 
 async function main(): Promise<void> {
@@ -133,9 +130,7 @@ async function main(): Promise<void> {
 	}
 
 	const scriptTargets = await collectScriptTargets(distPath);
-	const scriptResults = await Promise.all(
-		scriptTargets.map((filePath) => minifyScriptFile(filePath)),
-	);
+	const scriptResults = await Promise.all(scriptTargets.map((filePath) => minifyScriptFile(filePath)));
 	reportResults("JS", scriptResults);
 
 	const htmlTargets = await collectHtmlTargets(distPath);

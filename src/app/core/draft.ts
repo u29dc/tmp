@@ -99,12 +99,7 @@ const parseSettingsDraft = (raw: string): SettingsDraft | undefined => {
 const isSettingsPatch = (value: unknown): value is SettingsPatch => {
 	if (!isRecord(value)) return false;
 	for (const patchValue of Object.values(value)) {
-		if (
-			typeof patchValue !== "boolean" &&
-			typeof patchValue !== "number" &&
-			typeof patchValue !== "string"
-		)
-			return false;
+		if (typeof patchValue !== "boolean" && typeof patchValue !== "number" && typeof patchValue !== "string") return false;
 	}
 	return true;
 };
@@ -121,5 +116,4 @@ const clearSaveTimer = (): void => {
 	saveTimer = undefined;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);

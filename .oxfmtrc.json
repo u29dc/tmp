@@ -1,4 +1,17 @@
 {
 	"$schema": "./node_modules/oxfmt/configuration_schema.json",
-	"ignorePatterns": ["package.json"]
+	"arrowParens": "always",
+	"endOfLine": "lf",
+	"ignorePatterns": ["dist", "node_modules", ".astro", ".wrangler", ".tmp", ".clawpatch", ".git"],
+	"insertFinalNewline": true,
+	"printWidth": 200,
+	"proseWrap": "preserve",
+	"quoteProps": "as-needed",
+	"semi": true,
+	"singleQuote": false,
+	"sortImports": true,
+	"sortPackageJson": false,
+	"tabWidth": 4,
+	"trailingComma": "all",
+	"useTabs": true
 }

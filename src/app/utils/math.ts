@@ -4,30 +4,20 @@ const EPSILON = 0.000_001;
 
 export const linear: EasingFunction = (t) => t;
 
-export const clamp = (value: number, min: number, max: number): number =>
-	Math.min(max, Math.max(min, value));
+export const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
 export const saturate = (value: number): number => clamp(value, 0, 1);
 
-export const lerp = (from: number, to: number, amount: number): number =>
-	from + (to - from) * amount;
+export const lerp = (from: number, to: number, amount: number): number => from + (to - from) * amount;
 
 export const unlerp = (min: number, max: number, value: number): number => {
 	if (Math.abs(max - min) <= EPSILON) return 0;
 	return (value - min) / (max - min);
 };
 
-export const normalize = (value: number, min: number, max: number): number =>
-	saturate(unlerp(min, max, value));
+export const normalize = (value: number, min: number, max: number): number => saturate(unlerp(min, max, value));
 
-export const fit = (
-	value: number,
-	inMin: number,
-	inMax: number,
-	outMin: number,
-	outMax: number,
-	ease: EasingFunction = linear,
-): number => lerp(outMin, outMax, ease(normalize(value, inMin, inMax)));
+export const fit = (value: number, inMin: number, inMax: number, outMin: number, outMax: number, ease: EasingFunction = linear): number => lerp(outMin, outMax, ease(normalize(value, inMin, inMax)));
 
 export const wrap = (value: number, min: number, max: number): number => {
 	const range = max - min;
@@ -47,21 +37,14 @@ export const smootherstep = (edge0: number, edge1: number, value: number): numbe
 
 export const centerRatio = (value: number): number => 1 - Math.abs(saturate(value) * 2 - 1);
 
-export const damp = (
-	value: number,
-	target: number,
-	lambda: number,
-	dt: number,
-	epsilon = 0.001,
-): number => {
+export const damp = (value: number, target: number, lambda: number, dt: number, epsilon = 0.001): number => {
 	const next = lerp(value, target, 1 - Math.exp(-lambda * dt));
 	return Math.abs(next - target) <= epsilon ? target : next;
 };
 
 export const signedDirection = (value: number): -1 | 0 | 1 => (value > 0 ? 1 : value < 0 ? -1 : 0);
 
-export const finiteOr = (value: number, fallback = 0): number =>
-	Number.isFinite(value) ? value : fallback;
+export const finiteOr = (value: number, fallback = 0): number => (Number.isFinite(value) ? value : fallback);
 
 export const parseFiniteFloat = (value: string | undefined, fallback = 0): number => {
 	if (value === undefined) return fallback;
@@ -69,36 +52,29 @@ export const parseFiniteFloat = (value: string | undefined, fallback = 0): numbe
 	return finiteOr(parsed, fallback);
 };
 
-export const fixed = (value: number, digits: number, fallback = 0): string =>
-	finiteOr(value, fallback).toFixed(digits);
+export const fixed = (value: number, digits: number, fallback = 0): string => finiteOr(value, fallback).toFixed(digits);
 
 export const distance = (x: number, y: number): number => Math.hypot(x, y);
 
 export const distanceSquared = (x: number, y: number): number => x * x + y * y;
 
-export const normalizeAngle = (angle: number): number =>
-	wrap(angle + Math.PI, 0, Math.PI * 2) - Math.PI;
+export const normalizeAngle = (angle: number): number => wrap(angle + Math.PI, 0, Math.PI * 2) - Math.PI;
 
-export const closestAngleTo = (from: number, to: number): number =>
-	from + normalizeAngle(to - from);
+export const closestAngleTo = (from: number, to: number): number => from + normalizeAngle(to - from);
 
-export const randomRange = (min: number, max: number, random = Math.random): number =>
-	lerp(min, max, random());
+export const randomRange = (min: number, max: number, random = Math.random): number => lerp(min, max, random());
 
 export const easeQuadIn: EasingFunction = (t) => t * t;
 export const easeQuadOut: EasingFunction = (t) => t * (2 - t);
-export const easeQuadInOut: EasingFunction = (t) =>
-	t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+export const easeQuadInOut: EasingFunction = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
 export const easeCubicIn: EasingFunction = (t) => t * t * t;
 export const easeCubicOut: EasingFunction = (t) => 1 - (1 - t) ** 3;
-export const easeCubicInOut: EasingFunction = (t) =>
-	t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+export const easeCubicInOut: EasingFunction = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 export const easeQuartIn: EasingFunction = (t) => t * t * t * t;
 export const easeQuartOut: EasingFunction = (t) => 1 - (1 - t) ** 4;
-export const easeQuartInOut: EasingFunction = (t) =>
-	t < 0.5 ? 8 * t * t * t * t : 1 - (-2 * t + 2) ** 4 / 2;
+export const easeQuartInOut: EasingFunction = (t) => (t < 0.5 ? 8 * t * t * t * t : 1 - (-2 * t + 2) ** 4 / 2);
 
 export const easeSineIn: EasingFunction = (t) => 1 - Math.cos((t * Math.PI) / 2);
 export const easeSineOut: EasingFunction = (t) => Math.sin((t * Math.PI) / 2);
@@ -126,9 +102,7 @@ export const easeBackOut: EasingFunction = (t) => {
 export const easeBackInOut: EasingFunction = (t) => {
 	const c1 = 1.70158;
 	const c2 = c1 * 1.525;
-	return t < 0.5
-		? ((2 * t) ** 2 * ((c2 + 1) * 2 * t - c2)) / 2
-		: ((2 * t - 2) ** 2 * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2;
+	return t < 0.5 ? ((2 * t) ** 2 * ((c2 + 1) * 2 * t - c2)) / 2 : ((2 * t - 2) ** 2 * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2;
 };
 
 export const cubicBezier = (p0: number, p1: number, p2: number, p3: number, t: number): number => {

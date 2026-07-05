@@ -1,0 +1,57 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "import", "promise", "node"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error",
+		"perf": "error"
+	},
+	"options": {
+		"denyWarnings": true,
+		"maxWarnings": 0
+	},
+	"rules": {
+		"@typescript-eslint/no-explicit-any": "error",
+		"@typescript-eslint/no-non-null-assertion": "error",
+		"eqeqeq": "error",
+		"import/no-cycle": "error",
+		"no-console": "error",
+		"no-debugger": "error",
+		"no-var": "error",
+		"prefer-const": "error",
+		"typescript/consistent-type-imports": "error",
+		"typescript/no-unsafe-type-assertion": "off",
+		"unicorn/prefer-node-protocol": "error"
+	},
+	"overrides": [
+		{
+			"files": ["scripts/**/*.ts", "astro.config.ts", "commitlint.config.js", "lint-staged.config.js"],
+			"rules": {
+				"no-console": "off",
+				"no-underscore-dangle": "off"
+			}
+		},
+		{
+			"files": ["src/layouts/**/*.astro", "src/app/dev/pane.ts"],
+			"rules": {
+				"import/no-unassigned-import": "off"
+			}
+		},
+		{
+			"files": ["src/app/systems/motion.ts"],
+			"rules": {
+				"no-await-in-loop": "off"
+			}
+		}
+	],
+	"env": {
+		"browser": true,
+		"builtin": true,
+		"es6": true,
+		"node": true
+	},
+	"globals": {
+		"Bun": "readonly"
+	},
+	"ignorePatterns": ["dist", "node_modules", ".astro", ".wrangler", ".tmp", ".clawpatch"]
+}

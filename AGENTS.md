@@ -37,7 +37,7 @@
 | Runtime         | Bun + Astro                                   | static output with client-side runtime enhancement             |
 | Styling         | Tailwind v4 + CSS tokens                      | tokens own first-paint color, spacing, type, and motion values |
 | Browser runtime | TypeScript modules under `src/app`            | no framework component state for core interaction behavior     |
-| Controls        | Tweakpane under `src/app/dev`                 | local/staging settings surface, enabled with `?controls=1`     |
+| Controls        | cfg under `src/app/dev`                       | local/staging settings surface, enabled with `?controls=1`     |
 | Deployment      | Cloudflare adapter + static build             | headers live in [`public/_headers`](public/_headers)           |
 | Validation      | oxfmt, oxlint, Astro check, TypeScript, build | run through `bun run util:check`                               |
 
@@ -79,7 +79,7 @@
 - Controls are visible by default in dev, enabled in built deployments with `?controls=1`, and disabled for the current browser session with `?controls=0`.
 - Reset Settings clears `${SITE.namespace}:settings`, reapplies hardcoded defaults, and leaves `${SITE.namespace}:controls` unchanged.
 - Native scroll is the fallback; smooth scrolling is an enhancement gated by settings, device, network, pointer, and motion profile.
-- The loop may stay active while the document is visible; inactive modules should stay cheap.
+- `settings.runtime.continuous` controls whether the runtime loop stays active while the document is visible. It defaults to `true`; set it to `false` only when deliberately testing demand-driven scheduling.
 
 ## 7. Conventions
 

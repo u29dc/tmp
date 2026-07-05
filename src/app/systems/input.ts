@@ -69,8 +69,7 @@ const createInputState = (): InputState => ({
 	keyboard: emptyKeyboard(),
 });
 
-const keyboardKeyId = (event: KeyboardEvent): string =>
-	event.code.length > 0 ? event.code : `key:${event.key}`;
+const keyboardKeyId = (event: KeyboardEvent): string => (event.code.length > 0 ? event.code : `key:${event.key}`);
 
 class Input extends BaseModule {
 	readonly name = "input";
@@ -106,9 +105,7 @@ class Input extends BaseModule {
 		this.addCleanup(() => document.removeEventListener("keyup", this.handleKeyUp));
 		this.addCleanup(() => window.removeEventListener("blur", this.handleInputLoss));
 		this.addCleanup(() => window.removeEventListener("pagehide", this.handleInputLoss));
-		this.addCleanup(() =>
-			document.removeEventListener("visibilitychange", this.handleVisibilityChange),
-		);
+		this.addCleanup(() => document.removeEventListener("visibilitychange", this.handleVisibilityChange));
 	}
 
 	override init(context: Context): void {
@@ -176,10 +173,7 @@ class Input extends BaseModule {
 		return Array.from(new Set(this.activeKeys.values()));
 	}
 
-	private updatePointer(
-		event: PointerEvent,
-		options?: { pressed?: boolean; released?: boolean },
-	): void {
+	private updatePointer(event: PointerEvent, options?: { pressed?: boolean; released?: boolean }): void {
 		const x = event.clientX;
 		const y = event.clientY;
 		const dx = x - this.previousX;
@@ -200,11 +194,7 @@ class Input extends BaseModule {
 				dy,
 				vx: dx,
 				vy: dy,
-				isDown: options?.released
-					? false
-					: options?.pressed
-						? true
-						: this.state.pointer.isDown,
+				isDown: options?.released ? false : options?.pressed ? true : this.state.pointer.isDown,
 				wasPressed: this.state.pointer.wasPressed || options?.pressed === true,
 				wasReleased: this.state.pointer.wasReleased || options?.released === true,
 				activePointerType: event.pointerType || "unknown",
@@ -214,10 +204,7 @@ class Input extends BaseModule {
 	}
 
 	private releaseActiveInput(): void {
-		const hasActiveInput =
-			this.state.pointer.isDown ||
-			this.activeKeys.size > 0 ||
-			this.state.keyboard.activeKeys.length > 0;
+		const hasActiveInput = this.state.pointer.isDown || this.activeKeys.size > 0 || this.state.keyboard.activeKeys.length > 0;
 		if (!hasActiveInput) return;
 		this.activeKeys.clear();
 		this.state = {
@@ -326,11 +313,7 @@ class Input extends BaseModule {
 		this.emitIntent("input.wheel", this.wheelHandlers, intent);
 	}
 
-	private emitIntent<T>(
-		name: string,
-		handlers: ReadonlySet<InputIntentHandler<T>>,
-		intent: T,
-	): void {
+	private emitIntent<T>(name: string, handlers: ReadonlySet<InputIntentHandler<T>>, intent: T): void {
 		for (const handler of Array.from(handlers)) {
 			try {
 				handler(intent);
@@ -349,9 +332,7 @@ const normalizeWheelDelta = (delta: number, mode: number, size: number): number 
 	return delta;
 };
 
-const readModifiers = (
-	event: Pick<MouseEvent | WheelEvent, "altKey" | "ctrlKey" | "metaKey" | "shiftKey">,
-): InputModifiers => ({
+const readModifiers = (event: Pick<MouseEvent | WheelEvent, "altKey" | "ctrlKey" | "metaKey" | "shiftKey">): InputModifiers => ({
 	altKey: event.altKey,
 	ctrlKey: event.ctrlKey,
 	metaKey: event.metaKey,
@@ -389,7 +370,5 @@ const createClickIntent = (event: MouseEvent): InputClickIntent => ({
 
 export const input = new Input();
 export const getInputState = (): InputState => input.getState();
-export const onInputWheelIntent = (handler: InputIntentHandler<InputWheelIntent>): (() => void) =>
-	input.onWheelIntent(handler);
-export const onInputClickIntent = (handler: InputIntentHandler<InputClickIntent>): (() => void) =>
-	input.onClickIntent(handler);
+export const onInputWheelIntent = (handler: InputIntentHandler<InputWheelIntent>): (() => void) => input.onWheelIntent(handler);
+export const onInputClickIntent = (handler: InputIntentHandler<InputClickIntent>): (() => void) => input.onClickIntent(handler);

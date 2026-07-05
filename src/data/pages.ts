@@ -1,12 +1,6 @@
 import type { SiteImageOverride } from "@/data/media";
 import { SITE } from "@/data/site";
-import {
-	normalizeSitePath,
-	type ChangeFrequency,
-	type FeedItem,
-	type SitemapRoute,
-	type SitePath,
-} from "@/lib/seo";
+import { normalizeSitePath, type ChangeFrequency, type FeedItem, type SitemapRoute, type SitePath } from "@/lib/seo";
 
 export type PageSitemap = {
 	lastModified?: Date;

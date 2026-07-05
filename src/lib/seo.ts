@@ -2,14 +2,7 @@ import { SITE } from "@/data/site";
 
 export type SitePath = `/${string}`;
 
-export type ChangeFrequency =
-	| "always"
-	| "hourly"
-	| "daily"
-	| "weekly"
-	| "monthly"
-	| "yearly"
-	| "never";
+export type ChangeFrequency = "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
 
 export type SitemapRoute = {
 	path: SitePath;
@@ -31,11 +24,7 @@ export type FeedItem = {
 const SITE_PATH_ERROR = "must be a root-relative path without protocol, query, hash, or backslash";
 const SITE_LOCAL_ERROR = "must be site-local without protocol or backslash";
 
-export const isSitePath = (value: string): value is SitePath =>
-	value.startsWith("/") &&
-	!value.startsWith("//") &&
-	!value.includes("\\") &&
-	!/[?#]/.test(value);
+export const isSitePath = (value: string): value is SitePath => value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") && !/[?#]/.test(value);
 
 export const assertSitePath = (value: string, label = "site path"): SitePath => {
 	if (isSitePath(value)) return value;
@@ -58,16 +47,8 @@ export const absoluteSiteUrl = (path: string, base = SITE.url): string => {
 	return url.toString();
 };
 
-export const escapeXml = (value: string): string =>
-	value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;")
-		.replaceAll("'", "&apos;");
+export const escapeXml = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
 
-export const sortFeedItems = (items: readonly FeedItem[]): FeedItem[] =>
-	[...items].sort((a, b) => b.date.getTime() - a.date.getTime());
+export const sortFeedItems = (items: readonly FeedItem[]): FeedItem[] => items.toSorted((a, b) => b.date.getTime() - a.date.getTime());
 
-export const latestFeedDate = (items: readonly FeedItem[], fallback = SITE.updatedAt): Date =>
-	sortFeedItems(items)[0]?.date ?? fallback;
+export const latestFeedDate = (items: readonly FeedItem[], fallback = SITE.updatedAt): Date => sortFeedItems(items)[0]?.date ?? fallback;

@@ -66,10 +66,7 @@ export abstract class BaseModule implements Module {
 		}
 		if (errors.length === 1) throw errors[0];
 		if (errors.length > 1) {
-			throw new AggregateError(
-				errors,
-				`${this.name} failed to run ${errors.length} cleanup callbacks`,
-			);
+			throw new AggregateError(errors, `${this.name} failed to run ${errors.length} cleanup callbacks`);
 		}
 	}
 

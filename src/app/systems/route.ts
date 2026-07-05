@@ -1,7 +1,5 @@
-import type {
-	TransitionBeforePreparationEvent,
-	TransitionBeforeSwapEvent,
-} from "astro:transitions/client";
+import type { TransitionBeforePreparationEvent, TransitionBeforeSwapEvent } from "astro:transitions/client";
+
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import type { RouteState } from "@/app/core/state";
 import { setDataset } from "@/app/utils/dom";
@@ -128,15 +126,9 @@ class Route extends BaseModule {
 		document.addEventListener("astro:before-swap", this.handleBeforeSwap);
 		document.addEventListener("astro:after-swap", this.handleAfterSwap);
 		document.addEventListener("astro:page-load", this.handlePageLoad);
-		this.addCleanup(() =>
-			document.removeEventListener("astro:before-preparation", this.handleBeforePreparation),
-		);
-		this.addCleanup(() =>
-			document.removeEventListener("astro:before-swap", this.handleBeforeSwap),
-		);
-		this.addCleanup(() =>
-			document.removeEventListener("astro:after-swap", this.handleAfterSwap),
-		);
+		this.addCleanup(() => document.removeEventListener("astro:before-preparation", this.handleBeforePreparation));
+		this.addCleanup(() => document.removeEventListener("astro:before-swap", this.handleBeforeSwap));
+		this.addCleanup(() => document.removeEventListener("astro:after-swap", this.handleAfterSwap));
 		this.addCleanup(() => document.removeEventListener("astro:page-load", this.handlePageLoad));
 	}
 
@@ -209,15 +201,19 @@ class Route extends BaseModule {
 		if (!this.isActiveTransition(id)) return;
 		let swap = transitionEvent.swap;
 		this.setPageState("swapping");
-		for (const handler of this.beforeSwapHandlers) {
-			handler({
-				id,
-				newDocument: transitionEvent.newDocument,
-				wrapSwap(wrapper) {
-					const previous = swap;
-					swap = () => wrapper(previous);
-				},
-			});
+		for (const handler of Array.from(this.beforeSwapHandlers)) {
+			try {
+				handler({
+					id,
+					newDocument: transitionEvent.newDocument,
+					wrapSwap(wrapper) {
+						const previous = swap;
+						swap = () => wrapper(previous);
+					},
+				});
+			} catch (error) {
+				this.reportError("route.beforeSwap", error);
+			}
 		}
 		transitionEvent.swap = swap;
 	};
@@ -263,7 +259,7 @@ class Route extends BaseModule {
 			from: event.fromPathname,
 			to: event.toPathname,
 		});
-		await Promise.all(Array.from(this.preparationHandlers).map((handler) => handler(event)));
+		await Promise.all(Array.from(this.preparationHandlers).map((handler) => Promise.resolve(handler(event))));
 	}
 
 	private emitAbort(id: number): void {
@@ -273,11 +269,7 @@ class Route extends BaseModule {
 		this.emitRouteHandlers("route.abort", this.abortHandlers, { id });
 	}
 
-	private emitRouteHandlers(
-		name: string,
-		handlers: ReadonlySet<RouteHandler>,
-		event: RouteEvent,
-	): void {
+	private emitRouteHandlers(name: string, handlers: ReadonlySet<RouteHandler>, event: RouteEvent): void {
 		for (const handler of Array.from(handlers)) {
 			try {
 				handler(event);
@@ -306,9 +298,7 @@ class Route extends BaseModule {
 	private assertActiveTransition(id: number, signal: AbortSignal): void {
 		if (this.isActiveTransition(id)) return;
 		if (signal.aborted) {
-			throw signal.reason instanceof Error
-				? signal.reason
-				: new DOMException("Route transition aborted", "AbortError");
+			throw signal.reason instanceof Error ? signal.reason : new DOMException("Route transition aborted", "AbortError");
 		}
 		throw new DOMException("Route transition superseded", "AbortError");
 	}
@@ -316,10 +306,8 @@ class Route extends BaseModule {
 
 export const route = new Route();
 export const getRouteState = (): RouteState => route.getState();
-export const onRoutePreparation = (handler: PreparationHandler): (() => void) =>
-	route.onPreparation(handler);
-export const onRouteBeforeSwap = (handler: SwapHandler): (() => void) =>
-	route.onBeforeSwap(handler);
+export const onRoutePreparation = (handler: PreparationHandler): (() => void) => route.onPreparation(handler);
+export const onRouteBeforeSwap = (handler: SwapHandler): (() => void) => route.onBeforeSwap(handler);
 export const onRouteAfterSwap = (handler: RouteHandler): (() => void) => route.onAfterSwap(handler);
 export const onRouteLoad = (handler: RouteHandler): (() => void) => route.onLoad(handler);
 export const onRouteAbort = (handler: RouteHandler): (() => void) => route.onAbort(handler);

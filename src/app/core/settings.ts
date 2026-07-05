@@ -13,6 +13,9 @@ export type ThemeColors = {
 };
 
 export type AppSettings = {
+	runtime: {
+		continuous: boolean;
+	};
 	debug: {
 		enabled: boolean;
 		showFrameStats: boolean;
@@ -135,6 +138,9 @@ const THEME_COLOR_KEYS = new Set([
 const NUMBER_PATTERN = /^[+-]?(?:\d+|\d*\.\d+)(?:e[+-]?\d+)?$/i;
 
 export const createDefaultSettings = (): AppSettings => ({
+	runtime: {
+		continuous: true,
+	},
 	debug: {
 		enabled: false,
 		showFrameStats: false,
@@ -201,12 +207,7 @@ export const applyQuerySettings = (search?: string): void => {
 	const query = search ?? (typeof window === "undefined" ? "" : window.location.search);
 	if (!query || typeof URLSearchParams === "undefined") return;
 	const entries = new URLSearchParams(query);
-	applySettingsEntries(
-		Array.from(entries.entries(), ([key, value]): readonly [string, SettingsValue] => [
-			key,
-			value === "" ? true : value,
-		]),
-	);
+	applySettingsEntries(Array.from(entries.entries(), ([key, value]): readonly [string, SettingsValue] => [key, value === "" ? true : value]));
 };
 
 export const createSettingsPatch = (): SettingsPatch => {
@@ -234,12 +235,7 @@ const applySettingsEntries = (entries: Iterable<readonly [string, unknown]>): vo
 	mergeRecords(settings, candidate);
 };
 
-const setSettingByPath = (
-	target: AppSettings,
-	path: string,
-	value: SettingsValue,
-	options: SettingReadOptions = {},
-): boolean => {
+const setSettingByPath = (target: AppSettings, path: string, value: SettingsValue, options: SettingReadOptions = {}): boolean => {
 	const parts = path.split(".");
 	if (parts.some((part) => part.length === 0)) return false;
 	let cursor: unknown = target;
@@ -275,11 +271,9 @@ const mergeRecords = (target: unknown, source: unknown): void => {
 	}
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
-const isSettingsValue = (value: unknown): value is SettingsValue =>
-	typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+const isSettingsValue = (value: unknown): value is SettingsValue => typeof value === "boolean" || typeof value === "number" || typeof value === "string";
 
 const readBoolean = (value: SettingsValue): boolean | undefined => {
 	if (typeof value === "boolean") return value;
@@ -288,12 +282,7 @@ const readBoolean = (value: SettingsValue): boolean | undefined => {
 	return undefined;
 };
 
-const readNumber = (
-	path: string,
-	value: SettingsValue,
-	target: AppSettings,
-	options: SettingReadOptions,
-): number | undefined => {
+const readNumber = (path: string, value: SettingsValue, target: AppSettings, options: SettingReadOptions): number | undefined => {
 	if (typeof value === "boolean") return undefined;
 	const raw = typeof value === "number" ? String(value) : value.trim();
 	if (!NUMBER_PATTERN.test(raw)) return undefined;
@@ -301,8 +290,7 @@ const readNumber = (
 	if (!Number.isFinite(parsed)) return undefined;
 	const bounds = NUMBER_SETTING_BOUNDS[path];
 	if (!bounds || parsed < bounds.min || parsed > bounds.max) return undefined;
-	if (options.validateCrossFields !== false && !isCrossFieldNumberValid(path, parsed, target))
-		return undefined;
+	if (options.validateCrossFields !== false && !isCrossFieldNumberValid(path, parsed, target)) return undefined;
 	return parsed;
 };
 
@@ -315,8 +303,7 @@ const readString = (path: string, value: SettingsValue): string | undefined => {
 	return undefined;
 };
 
-const isThemeMode = (value: string): value is ThemeMode =>
-	value === "system" || value === "light" || value === "dark";
+const isThemeMode = (value: string): value is ThemeMode => value === "system" || value === "light" || value === "dark";
 
 const isColorValue = (value: string): boolean => {
 	if (!value) return false;
@@ -332,24 +319,12 @@ const isCrossFieldNumberValid = (path: string, value: number, target: AppSetting
 	return true;
 };
 
-const isSettingsCandidateValid = (candidate: AppSettings): boolean =>
-	candidate.device.smallWidth < candidate.device.largeWidth &&
-	candidate.device.maxDprMedium <= candidate.device.maxDprHigh;
+const isSettingsCandidateValid = (candidate: AppSettings): boolean => candidate.device.smallWidth < candidate.device.largeWidth && candidate.device.maxDprMedium <= candidate.device.maxDprHigh;
 
-const collectSettingsPatch = (
-	path: string,
-	current: unknown,
-	defaultValue: unknown,
-	patch: SettingsPatch,
-): void => {
+const collectSettingsPatch = (path: string, current: unknown, defaultValue: unknown, patch: SettingsPatch): void => {
 	if (isRecord(current) && isRecord(defaultValue)) {
 		for (const key of Object.keys(defaultValue)) {
-			collectSettingsPatch(
-				path ? `${path}.${key}` : key,
-				current[key],
-				defaultValue[key],
-				patch,
-			);
+			collectSettingsPatch(path ? `${path}.${key}` : key, current[key], defaultValue[key], patch);
 		}
 		return;
 	}

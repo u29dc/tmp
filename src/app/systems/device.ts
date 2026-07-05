@@ -1,13 +1,6 @@
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
-import type {
-	DeviceProfile,
-	DisplayProfile,
-	PointerProfile,
-	MotionQuality,
-	NetworkProfile,
-	PerformanceTier,
-} from "@/app/core/state";
+import type { DeviceProfile, DisplayProfile, PointerProfile, MotionQuality, NetworkProfile, PerformanceTier } from "@/app/core/state";
 import { setDataset } from "@/app/utils/dom";
 
 type NavigatorWithSignals = Navigator & {
@@ -104,13 +97,9 @@ class Device extends BaseModule {
 		this.connection?.addEventListener?.("change", this.handleConnectionChange);
 		window.addEventListener("pageshow", this.handlePageShow);
 		document.addEventListener("visibilitychange", this.handleVisibilityChange);
-		this.addCleanup(() =>
-			this.connection?.removeEventListener?.("change", this.handleConnectionChange),
-		);
+		this.addCleanup(() => this.connection?.removeEventListener?.("change", this.handleConnectionChange));
 		this.addCleanup(() => window.removeEventListener("pageshow", this.handlePageShow));
-		this.addCleanup(() =>
-			document.removeEventListener("visibilitychange", this.handleVisibilityChange),
-		);
+		this.addCleanup(() => document.removeEventListener("visibilitychange", this.handleVisibilityChange));
 	}
 
 	private refreshProfile(): void {
@@ -118,14 +107,9 @@ class Device extends BaseModule {
 		this.generation += 1;
 		const nav = navigator as NavigatorWithSignals;
 		const saveData = nav.connection?.saveData ?? false;
-		const reducedMotion =
-			this.reduceQuery?.matches ??
-			window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		const coarsePointer =
-			this.coarseQuery?.matches ??
-			window.matchMedia("(hover: none), (pointer: coarse)").matches;
-		const finePointer =
-			this.fineQuery?.matches ?? window.matchMedia("(hover: hover), (pointer: fine)").matches;
+		const reducedMotion = this.reduceQuery?.matches ?? window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const coarsePointer = this.coarseQuery?.matches ?? window.matchMedia("(hover: none), (pointer: coarse)").matches;
+		const finePointer = this.fineQuery?.matches ?? window.matchMedia("(hover: hover), (pointer: fine)").matches;
 		const hover = this.hoverQuery?.matches ?? window.matchMedia("(hover: hover)").matches;
 		const width = window.innerWidth;
 		const height = window.innerHeight;
@@ -135,11 +119,7 @@ class Device extends BaseModule {
 		const displayProfile = readDisplayProfile(width);
 		const motionQuality = readMotionQuality(tier, reducedMotion, saveData);
 		const pointerProfile = readPointerProfile(coarsePointer, finePointer);
-		const networkProfile: NetworkProfile = saveData
-			? "save-data"
-			: nav.connection?.effectiveType
-				? "standard"
-				: "unknown";
+		const networkProfile: NetworkProfile = saveData ? "save-data" : nav.connection?.effectiveType ? "standard" : "unknown";
 		const dpr = window.devicePixelRatio || 1;
 
 		this.profile = {
@@ -152,12 +132,7 @@ class Device extends BaseModule {
 			displayProfile,
 			networkProfile,
 			dpr,
-			dprCap:
-				tier === "high"
-					? Math.min(dpr, settings.device.maxDprHigh)
-					: tier === "medium"
-						? Math.min(dpr, settings.device.maxDprMedium)
-						: 1,
+			dprCap: tier === "high" ? Math.min(dpr, settings.device.maxDprHigh) : tier === "medium" ? Math.min(dpr, settings.device.maxDprMedium) : 1,
 			reducedMotion,
 			hover,
 			coarsePointer,
@@ -215,22 +190,13 @@ const readPointerProfile = (coarse: boolean, fine: boolean): PointerProfile => {
 	return "unknown";
 };
 
-const readTier = (
-	cores: number,
-	memory: number,
-	saveData: boolean,
-	reducedMotion: boolean,
-): PerformanceTier => {
+const readTier = (cores: number, memory: number, saveData: boolean, reducedMotion: boolean): PerformanceTier => {
 	if (saveData || reducedMotion || cores <= 2 || memory <= 2) return "low";
 	if (cores <= 4 || memory <= 4) return "medium";
 	return "high";
 };
 
-const readMotionQuality = (
-	tier: PerformanceTier,
-	reducedMotion: boolean,
-	saveData: boolean,
-): MotionQuality => {
+const readMotionQuality = (tier: PerformanceTier, reducedMotion: boolean, saveData: boolean): MotionQuality => {
 	if (reducedMotion) return "reduced";
 	if (saveData || tier === "low") return "lite";
 	return "full";

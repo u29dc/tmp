@@ -1,22 +1,7 @@
 export const DEFAULT_SITE_URL = "https://example.com";
 
 const ENVIRONMENT_LABELS = new Set(["dev", "preview", "staging", "test", "www"]);
-const PUBLIC_SUFFIX_PAIRS = new Set([
-	"ac.uk",
-	"co.jp",
-	"co.uk",
-	"com.au",
-	"com.br",
-	"com.tr",
-	"com.ua",
-	"com.cn",
-	"net.au",
-	"net.cn",
-	"net.nz",
-	"org.au",
-	"org.cn",
-	"org.nz",
-]);
+const PUBLIC_SUFFIX_PAIRS = new Set(["ac.uk", "co.jp", "co.uk", "com.au", "com.br", "com.tr", "com.ua", "com.cn", "net.au", "net.cn", "net.nz", "org.au", "org.cn", "org.nz"]);
 const NAMESPACE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const normalizeSiteUrl = (value: string): string => {
@@ -43,16 +28,13 @@ export const normalizeSiteUrl = (value: string): string => {
 
 	const pathname = url.pathname.replace(/\/+$/, "") || "/";
 	if (pathname !== "/") {
-		throw new Error(
-			"SITE_URL must not include a path; configure Astro base separately if subpath deploy support is added",
-		);
+		throw new Error("SITE_URL must not include a path; configure Astro base separately if subpath deploy support is added");
 	}
 	url.pathname = "/";
 	return url.toString().replace(/\/$/, "");
 };
 
-export const resolveSiteUrl = (value?: string): string =>
-	normalizeSiteUrl(value ?? DEFAULT_SITE_URL);
+export const resolveSiteUrl = (value?: string): string => normalizeSiteUrl(value ?? DEFAULT_SITE_URL);
 
 export const resolveSiteNamespace = (siteUrl: string, override?: string): string => {
 	const custom = override?.trim().toLowerCase();

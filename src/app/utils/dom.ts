@@ -1,5 +1,4 @@
-export const toArray = <T extends Element>(nodes: Iterable<T> | ArrayLike<T>): T[] =>
-	Array.from(nodes);
+export const toArray = <T extends Element>(nodes: Iterable<T> | ArrayLike<T>): T[] => Array.from(nodes);
 
 export const composedPath = (event: Event): EventTarget[] => {
 	if (typeof event.composedPath === "function") return event.composedPath();
@@ -9,11 +8,7 @@ export const composedPath = (event: Event): EventTarget[] => {
 
 export const isElement = (value: EventTarget | null): value is Element => value instanceof Element;
 
-export const setDataset = (
-	element: HTMLElement,
-	key: string,
-	value: string | number | boolean,
-): boolean => {
+export const setDataset = (element: HTMLElement, key: string, value: string | number | boolean): boolean => {
 	const next = String(value);
 	if (!next) return removeDataset(element, key);
 	if (element.dataset[key] === next) return false;
@@ -27,11 +22,7 @@ export const removeDataset = (element: HTMLElement, key: string): boolean => {
 	return true;
 };
 
-export const setStyleProperty = (
-	element: HTMLElement,
-	property: string,
-	value: string | number,
-): boolean => {
+export const setStyleProperty = (element: HTMLElement, property: string, value: string | number): boolean => {
 	const next = String(value);
 	if (!next || next === "NaN" || next === "Infinity" || next === "-Infinity") {
 		return removeStyleProperty(element, property);
@@ -60,8 +51,7 @@ export const isClassToken = (value: string): boolean => {
 	return token.length > 0 && !/\s/.test(token);
 };
 
-export const readClassToken = (value: string | undefined, fallback: string): string =>
-	value && isClassToken(value) ? value.trim() : fallback;
+export const readClassToken = (value: string | undefined, fallback: string): string => (value && isClassToken(value) ? value.trim() : fallback);
 
 export const focusElement = (element: HTMLElement): void => {
 	const hadTabIndex = element.hasAttribute("tabindex");
@@ -79,7 +69,5 @@ export const focusElement = (element: HTMLElement): void => {
 const isFocusable = (element: HTMLElement): boolean => {
 	if (element.matches(":disabled, [aria-disabled='true'], [hidden], [inert]")) return false;
 	if (element.tabIndex >= 0) return true;
-	return element.matches(
-		"a[href], button, input, select, textarea, summary, iframe, audio[controls], video[controls], [contenteditable='true']",
-	);
+	return element.matches("a[href], button, input, select, textarea, summary, iframe, audio[controls], video[controls], [contenteditable='true']");
 };

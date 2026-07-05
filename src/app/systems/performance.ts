@@ -73,21 +73,14 @@ class Performance extends BaseModule {
 		const duration = performance.now() - this.frameStartedAt;
 		this.frameStartedAt = 0;
 		const frameCount = this.state.frameCount + 1;
-		const averageFrameMs =
-			this.state.averageFrameMs === 0
-				? duration
-				: this.state.averageFrameMs +
-					(duration - this.state.averageFrameMs) * AVERAGE_WEIGHT;
+		const averageFrameMs = this.state.averageFrameMs === 0 ? duration : this.state.averageFrameMs + (duration - this.state.averageFrameMs) * AVERAGE_WEIGHT;
 		this.state = {
 			...this.state,
 			frameCount,
 			lastFrameMs: duration,
 			averageFrameMs,
 			maxFrameMs: Math.max(this.state.maxFrameMs, duration),
-			longFrameCount:
-				duration > LONG_FRAME_MS
-					? this.state.longFrameCount + 1
-					: this.state.longFrameCount,
+			longFrameCount: duration > LONG_FRAME_MS ? this.state.longFrameCount + 1 : this.state.longFrameCount,
 		};
 	}
 

@@ -21,12 +21,7 @@ export type BooleanFlag = {
 const TRUE_VALUES = new Set(["1", "true", "on"]);
 const FALSE_VALUES = new Set(["0", "false", "off"]);
 
-export const createBooleanFlag = ({
-	param,
-	storageKey,
-	persistence = "none",
-	defaultValue = false,
-}: BooleanFlagOptions): BooleanFlag => {
+export const createBooleanFlag = ({ param, storageKey, persistence = "none", defaultValue = false }: BooleanFlagOptions): BooleanFlag => {
 	const storageEnabled = persistence === "session";
 
 	const readDefault = (): BooleanFlagState => ({

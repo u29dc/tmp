@@ -8,13 +8,13 @@
 	const namespace = root.dataset.siteNamespace || "site";
 	const controlsKey = `${namespace}:controls`;
 	const settingsKey = `${namespace}:settings`;
-	const theme = readThemeDefaults(root.dataset.themeSettings);
-	if (!theme) return;
+	const themeConfig = readThemeDefaults(root.dataset.themeSettings);
+	if (!themeConfig) return;
 
 	const controlsEnabled = readControls(controlsKey, root.dataset.controlsDefault === "true");
-	if (controlsEnabled) mergeThemePatch(theme, readStoredSettings(settingsKey));
-	mergeThemePatch(theme, readQuerySettings());
-	applyTheme(theme);
+	if (controlsEnabled) mergeThemePatch(themeConfig, readStoredSettings(settingsKey));
+	mergeThemePatch(themeConfig, readQuerySettings());
+	applyTheme(themeConfig);
 
 	function readControls(key, defaultValue) {
 		const query = readQueryValue("controls");
@@ -30,13 +30,13 @@
 	function readThemeDefaults(raw) {
 		const candidate = parseJson(raw);
 		if (!candidate || !isRecord(candidate)) return undefined;
-		const theme = {
+		const themeDefaults = {
 			mode: readMode(candidate.mode) ?? "system",
 			light: readColors(candidate.light),
 			dark: readColors(candidate.dark),
 		};
-		if (!theme.light || !theme.dark) return undefined;
-		return theme;
+		if (!themeDefaults.light || !themeDefaults.dark) return undefined;
+		return themeDefaults;
 	}
 
 	function readStoredSettings(key) {
@@ -57,27 +57,26 @@
 		return patch;
 	}
 
-	function mergeThemePatch(theme, patch) {
+	function mergeThemePatch(themePatchTarget, patch) {
 		if (!isRecord(patch)) return;
 		for (const [path, value] of Object.entries(patch)) {
 			if (path === "theme.mode") {
 				const mode = readMode(value);
-				if (mode) theme.mode = mode;
+				if (mode) themePatchTarget.mode = mode;
 				continue;
 			}
 			const colorPath = readColorPath(path);
 			if (!colorPath) continue;
 			const color = readColor(value);
-			if (color) theme[colorPath.scheme][colorPath.key] = color;
+			if (color) themePatchTarget[colorPath.scheme][colorPath.key] = color;
 		}
 	}
 
-	function applyTheme(theme) {
-		const scheme =
-			theme.mode === "light" || theme.mode === "dark" ? theme.mode : readSystemScheme();
-		const colors = scheme === "dark" ? theme.dark : theme.light;
+	function applyTheme(themeToApply) {
+		const scheme = themeToApply.mode === "light" || themeToApply.mode === "dark" ? themeToApply.mode : readSystemScheme();
+		const colors = scheme === "dark" ? themeToApply.dark : themeToApply.light;
 		root.dataset.theme = scheme;
-		root.dataset.themeMode = theme.mode;
+		root.dataset.themeMode = themeToApply.mode;
 		root.style.setProperty("color-scheme", scheme);
 		root.style.setProperty("background-color", "var(--site-ground)");
 		root.style.setProperty("color", "var(--site-ink)");
@@ -108,12 +107,7 @@
 	function readColor(value) {
 		if (typeof value !== "string" || !value.trim()) return undefined;
 		const color = value.trim();
-		if (
-			window.CSS &&
-			typeof window.CSS.supports === "function" &&
-			!window.CSS.supports("color", color)
-		)
-			return undefined;
+		if (window.CSS && typeof window.CSS.supports === "function" && !window.CSS.supports("color", color)) return undefined;
 		return color;
 	}
 
@@ -133,9 +127,7 @@
 	}
 
 	function readSystemScheme() {
-		return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-			? "dark"
-			: "light";
+		return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 	}
 
 	function updateColorSchemeMeta(scheme) {

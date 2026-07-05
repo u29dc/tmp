@@ -1,32 +1,10 @@
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
 import type { DeviceProfile, ScrollRangeState, ScrollState } from "@/app/core/state";
-import {
-	onInputClickIntent,
-	onInputWheelIntent,
-	type InputClickIntent,
-	type InputWheelIntent,
-} from "@/app/systems/input";
+import { onInputClickIntent, onInputWheelIntent, type InputClickIntent, type InputWheelIntent } from "@/app/systems/input";
 import { setRouteHash } from "@/app/systems/route";
-import {
-	focusElement,
-	readClassToken,
-	removeDataset,
-	removeStyleProperty,
-	setDataset,
-	setStyleProperty,
-	toggleClass,
-} from "@/app/utils/dom";
-import {
-	clamp,
-	damp,
-	fit,
-	fixed,
-	parseFiniteFloat,
-	saturate,
-	signedDirection,
-	unlerp,
-} from "@/app/utils/math";
+import { focusElement, readClassToken, removeDataset, removeStyleProperty, setDataset, setStyleProperty, toggleClass } from "@/app/utils/dom";
+import { clamp, damp, fit, fixed, parseFiniteFloat, saturate, signedDirection, unlerp } from "@/app/utils/math";
 
 type ScrollElement = {
 	element: HTMLElement;
@@ -41,6 +19,7 @@ type ScrollElement = {
 	callEvent: string | null;
 	enableTouchSpeed: boolean;
 	transformAllowed: boolean;
+	transformY: number;
 	top: number;
 	height: number;
 	intersectionStart: number;
@@ -56,8 +35,7 @@ type ScrollToOptions = {
 
 const SCROLL_SELECTOR = "[data-scroll]";
 const SCROLL_TO_SELECTOR = "a[href^='#'], [data-scroll-to], [data-scroll-to-href]";
-const NATIVE_SCROLL_SELECTOR =
-	"[data-native-scroll], [data-scroll-native], textarea, select, iframe, [contenteditable='true']";
+const NATIVE_SCROLL_SELECTOR = "[data-native-scroll], [data-scroll-native], textarea, select, iframe, [contenteditable='true']";
 const INVIEW_CLASS = "is-inview";
 const INTERACTIVE_ROOT_MARGIN = "100% 0px 100% 0px";
 const SETTLE_MS = 120;
@@ -145,10 +123,7 @@ class Scroll extends BaseModule {
 		super.update(frame);
 		const hadPendingWrite = this.writeY !== undefined;
 		this.refreshCapability(frame.profile);
-		if (
-			this.smoothActive &&
-			(frame.input.pointer.wasPressed || frame.input.keyboard.hadKeyboardInput)
-		) {
+		if (this.smoothActive && (frame.input.pointer.wasPressed || frame.input.keyboard.hadKeyboardInput)) {
 			this.syncFromWindow("native", frame.now);
 		}
 		if (frame.input.wheel.source !== "none" && !this.smoothActive) this.source = "wheel";
@@ -163,12 +138,7 @@ class Scroll extends BaseModule {
 		if (stateChanged || this.needsMeasure) this.writeRootState();
 		this.writeElements(frame, stateChanged);
 		this.writeScrollPosition();
-		const needsNextFrame =
-			this.smoothActive ||
-			hadPendingWrite ||
-			this.needsMeasure ||
-			this.state.isScrolling ||
-			this.hasActiveScrollWork();
+		const needsNextFrame = this.smoothActive || hadPendingWrite || this.needsMeasure || this.state.isScrolling || this.hasActiveScrollWork();
 		this.needsMeasure = false;
 		return needsNextFrame;
 	}
@@ -218,13 +188,12 @@ class Scroll extends BaseModule {
 	}
 
 	private scan(root: ParentNode = document): void {
+		const previousElements = new Map(this.elements.map((item) => [item.element, item]));
 		this.observer?.disconnect();
 		this.observer = this.createIntersectionObserver();
 		this.resizeObserver?.disconnect();
 		this.resizeObserver = this.createResizeObserver();
-		this.elements = Array.from(root.querySelectorAll<HTMLElement>(SCROLL_SELECTOR)).map(
-			(element) => this.createElement(element),
-		);
+		this.elements = Array.from(root.querySelectorAll<HTMLElement>(SCROLL_SELECTOR)).map((element) => this.createElement(element, previousElements.get(element)));
 		for (const item of this.elements) {
 			if (this.observer) this.observer.observe(item.element);
 			else item.interactive = true;
@@ -234,15 +203,11 @@ class Scroll extends BaseModule {
 		this.requestFrame("scroll:scan");
 	}
 
-	private createElement(element: HTMLElement): ScrollElement {
-		const [offsetStart = "0", offsetEnd = "0"] = splitPair(element.dataset["scrollOffset"]);
-		const [positionStart = "start", positionEnd = "end"] = splitPair(
-			element.dataset["scrollPosition"] ?? "start,end",
-		);
-		const speed =
-			element.dataset["scrollSpeed"] === undefined
-				? null
-				: parseFiniteFloat(element.dataset["scrollSpeed"], Number.NaN);
+	private createElement(element: HTMLElement, previous?: ScrollElement): ScrollElement {
+		const [offsetStart, offsetEnd] = splitPair(element.dataset["scrollOffset"]);
+		const [positionStart, positionEnd] = splitPair(element.dataset["scrollPosition"], "start", "end");
+		const speed = element.dataset["scrollSpeed"] === undefined ? null : parseFiniteFloat(element.dataset["scrollSpeed"], Number.NaN);
+		if (!Number.isFinite(speed) && previous && previous.speed !== null) removeStyleProperty(element, "transform");
 
 		return {
 			element,
@@ -256,12 +221,13 @@ class Scroll extends BaseModule {
 			cssProgress: element.dataset["scrollCssProgress"] !== undefined,
 			callEvent: element.dataset["scrollCall"] ?? null,
 			enableTouchSpeed: element.dataset["scrollEnableTouchSpeed"] !== undefined,
-			transformAllowed: false,
+			transformAllowed: previous?.transformAllowed ?? false,
+			transformY: Number.isFinite(speed) ? (previous?.transformY ?? 0) : 0,
 			top: 0,
 			height: 0,
 			intersectionStart: 0,
 			intersectionEnd: 1,
-			interactive: false,
+			interactive: previous?.interactive ?? false,
 			range: createRangeState(),
 		};
 	}
@@ -271,9 +237,7 @@ class Scroll extends BaseModule {
 		return new IntersectionObserver(
 			(entries) => {
 				for (const entry of entries) {
-					const item = this.elements.find(
-						(candidate) => candidate.element === entry.target,
-					);
+					const item = this.elements.find((candidate) => candidate.element === entry.target);
 					if (!item) continue;
 					item.interactive = entry.isIntersecting;
 				}
@@ -430,7 +394,7 @@ class Scroll extends BaseModule {
 	private measureElements(currentScroll: number): void {
 		for (const item of this.elements) {
 			const rect = item.element.getBoundingClientRect();
-			item.top = currentScroll + rect.top;
+			item.top = currentScroll + rect.top - item.transformY;
 			item.height = rect.height;
 			item.intersectionStart = resolveStart(item, window.innerHeight);
 			item.intersectionEnd = resolveEnd(item);
@@ -445,17 +409,10 @@ class Scroll extends BaseModule {
 		for (const item of this.elements) {
 			if (!item.interactive && !item.range.isActive && !this.state.isScrolling) continue;
 			const previousActive = item.range.isActive;
-			const rawProgress = unlerp(
-				item.intersectionStart,
-				item.intersectionEnd,
-				this.state.actual,
-			);
+			const rawProgress = unlerp(item.intersectionStart, item.intersectionEnd, this.state.actual);
 			const progress = saturate(rawProgress);
 			const isActive = rawProgress >= -RANGE_EPSILON && rawProgress <= 1 + RANGE_EPSILON;
-			const visibleSpan = Math.max(
-				RANGE_EPSILON,
-				item.height <= 0 ? 1 : saturate(viewport / item.height),
-			);
+			const visibleSpan = Math.max(RANGE_EPSILON, item.height <= 0 ? 1 : saturate(viewport / item.height));
 			item.range = {
 				wasActive: previousActive,
 				isActive,
@@ -477,24 +434,14 @@ class Scroll extends BaseModule {
 		setStyleProperty(root, "--scroll-velocity", fixed(this.state.velocity, 3));
 		setDataset(root, "smoothScroll", this.state.isSmoothEnabled ? "enhanced" : "native");
 		setDataset(root, "scrolling", this.state.isScrolling);
-		setDataset(
-			root,
-			"scrollDirection",
-			this.state.direction > 0 ? "down" : this.state.direction < 0 ? "up" : "none",
-		);
+		setDataset(root, "scrollDirection", this.state.direction > 0 ? "down" : this.state.direction < 0 ? "up" : "none");
 	}
 
 	private writeElements(frame: Frame, stateChanged: boolean): void {
 		for (const item of this.elements) {
 			const transformAllowed = canTransformElement(item, frame);
 			const transformCapabilityChanged = item.transformAllowed !== transformAllowed;
-			if (
-				!stateChanged &&
-				!this.needsMeasure &&
-				!item.range.needsShow &&
-				!item.range.needsHide &&
-				!transformCapabilityChanged
-			) {
+			if (!stateChanged && !this.needsMeasure && !item.range.needsShow && !item.range.needsHide && !transformCapabilityChanged) {
 				continue;
 			}
 			this.writeElementState(item, frame, transformAllowed);
@@ -502,11 +449,7 @@ class Scroll extends BaseModule {
 	}
 
 	private writeElementState(item: ScrollElement, frame: Frame, transformAllowed: boolean): void {
-		const scrollState = item.range.isActive
-			? "visible"
-			: item.range.rawProgress <= 0
-				? "before"
-				: "after";
+		const scrollState = item.range.isActive ? "visible" : item.range.rawProgress <= 0 ? "before" : "after";
 		setDataset(item.element, "scrollState", scrollState);
 		setStyleProperty(item.element, "--scroll-progress", fixed(item.range.progress, 4));
 		setStyleProperty(item.element, "--scroll-raw-progress", fixed(item.range.rawProgress, 4));
@@ -533,28 +476,20 @@ class Scroll extends BaseModule {
 	}
 
 	private hasActiveScrollWork(): boolean {
-		return (
-			this.state.isScrolling &&
-			this.elements.some(
-				(item) => item.interactive && item.speed !== null && item.range.isActive,
-			)
-		);
+		return this.state.isScrolling && this.elements.some((item) => item.interactive && item.speed !== null && item.range.isActive);
 	}
 
-	private writeElementTransform(
-		item: ScrollElement,
-		frame: Frame,
-		transformAllowed: boolean,
-	): void {
+	private writeElementTransform(item: ScrollElement, frame: Frame, transformAllowed: boolean): void {
 		item.transformAllowed = transformAllowed;
 		if (item.speed === null) return;
 		if (!transformAllowed) {
 			removeStyleProperty(item.element, "transform");
+			item.transformY = 0;
 			return;
 		}
 		const viewport = frame.profile.viewport.height || window.innerHeight;
-		const value = fit(item.range.progress, 0, 1, -1, 1) * viewport * item.speed * -1;
-		setStyleProperty(item.element, "transform", `translate3d(0, ${fixed(value, 3)}px, 0)`);
+		item.transformY = Number(fixed(fit(item.range.progress, 0, 1, -1, 1) * viewport * item.speed * -1, 3));
+		setStyleProperty(item.element, "transform", `translate3d(0, ${fixed(item.transformY, 3)}px, 0)`);
 	}
 
 	private dispatchScrollCall(item: ScrollElement): void {
@@ -629,14 +564,10 @@ class Scroll extends BaseModule {
 		if (!trigger) return;
 		if (trigger instanceof HTMLAnchorElement && !shouldEnhanceAnchor(trigger)) return;
 
-		const targetValue =
-			trigger.dataset["scrollToHref"] ??
-			trigger.dataset["scrollTo"] ??
-			(trigger instanceof HTMLAnchorElement ? trigger.getAttribute("href") : null);
+		const targetValue = trigger.dataset["scrollToHref"] ?? trigger.dataset["scrollTo"] ?? (trigger instanceof HTMLAnchorElement ? trigger.getAttribute("href") : null);
 		if (!targetValue || targetValue === "#") return;
 
-		const samePageUrl =
-			trigger instanceof HTMLAnchorElement ? resolveSamePageUrl(targetValue) : null;
+		const samePageUrl = trigger instanceof HTMLAnchorElement ? resolveSamePageUrl(targetValue) : null;
 		if (trigger instanceof HTMLAnchorElement && !samePageUrl) return;
 
 		const selector = samePageUrl?.hash || targetValue;
@@ -666,10 +597,7 @@ const hasStateChanged = (previous: ScrollState, next: ScrollState): boolean =>
 	previous.source !== next.source;
 
 const canTransformElement = (item: ScrollElement, frame: Frame): boolean =>
-	item.speed !== null &&
-	!frame.profile.reducedMotion &&
-	(!frame.profile.coarsePointer || item.enableTouchSpeed) &&
-	item.interactive;
+	item.speed !== null && !frame.profile.reducedMotion && (!frame.profile.coarsePointer || item.enableTouchSpeed) && item.interactive;
 
 class ScrollAnimator {
 	value = 0;
@@ -694,9 +622,7 @@ class ScrollAnimator {
 		const previous = this.value;
 		this.value = damp(this.value, this.target, settings.scroll.lambda, dt);
 		this.velocity = dt > 0 ? (this.value - previous) / dt : 0;
-		const settled =
-			Math.abs(this.target - this.value) <= settings.scroll.settlePx &&
-			Math.abs(this.velocity) <= settings.scroll.settlePx * 120;
+		const settled = Math.abs(this.target - this.value) <= settings.scroll.settlePx && Math.abs(this.velocity) <= settings.scroll.settlePx * 120;
 		if (!settled) return false;
 		this.value = this.target;
 		this.velocity = 0;
@@ -705,10 +631,7 @@ class ScrollAnimator {
 	}
 }
 
-const readSmoothWheelDeltaY = (intent: InputWheelIntent): number =>
-	intent.deltaMode === WheelEvent.DOM_DELTA_PAGE
-		? intent.dy * settings.scroll.pageMultiplier
-		: intent.dy;
+const readSmoothWheelDeltaY = (intent: InputWheelIntent): number => (intent.deltaMode === WheelEvent.DOM_DELTA_PAGE ? intent.dy * settings.scroll.pageMultiplier : intent.dy);
 
 const shouldUseNativeWheel = (intent: InputWheelIntent, enabled: boolean): boolean => {
 	if (!enabled || intent.defaultPrevented) return true;
@@ -724,9 +647,9 @@ const isHorizontalWheelIntent = (intent: InputWheelIntent): boolean => {
 	return x > 0 && x > y;
 };
 
-const splitPair = (value = ""): [string, string] => {
-	const [first = "0", second = "0"] = value.split(",").map((part) => part.trim());
-	return [first, second];
+const splitPair = (value = "", firstFallback = "0", secondFallback = "0"): [string, string] => {
+	const [first, second] = value.split(",").map((part) => part.trim());
+	return [first ?? firstFallback, second ?? secondFallback];
 };
 
 const parseViewportOffset = (value: string, viewport: number): number => {
@@ -760,8 +683,7 @@ const resolveSamePageUrl = (href: string): URL | null => {
 	try {
 		const url = new URL(href, window.location.href);
 		if (url.origin !== window.location.origin) return null;
-		if (url.pathname !== window.location.pathname || url.search !== window.location.search)
-			return null;
+		if (url.pathname !== window.location.pathname || url.search !== window.location.search) return null;
 		if (!url.hash) return null;
 		return url;
 	} catch {
@@ -793,5 +715,4 @@ const decodeHash = (hash: string): string => {
 export const scroll = new Scroll();
 export const getScrollState = (): ScrollState => scroll.getState();
 export const applyScrollSettings = (): void => scroll.applySettings();
-export const scrollTo = (target: number | string | HTMLElement, options?: ScrollToOptions): void =>
-	scroll.scrollTo(target, options);
+export const scrollTo = (target: number | string | HTMLElement, options?: ScrollToOptions): void => scroll.scrollTo(target, options);

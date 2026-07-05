@@ -1,15 +1,8 @@
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
-import { delayTimer, setTimer, type TimerHandle } from "@/app/core/timer";
+import { delayTimer, setTimer } from "@/app/core/timer";
+import { onRouteAbort, onRouteAfterSwap, onRouteBeforeSwap, onRouteLoad, onRoutePreparation, type RouteEvent } from "@/app/systems/route";
 import { removeDataset, setDataset } from "@/app/utils/dom";
-import {
-	onRouteAbort,
-	onRouteAfterSwap,
-	onRouteBeforeSwap,
-	onRouteLoad,
-	onRoutePreparation,
-	type RouteEvent,
-} from "@/app/systems/route";
 
 export type MotionHandle = {
 	readonly name: string;
@@ -54,23 +47,24 @@ class Motion extends BaseModule {
 	}
 
 	queueFrame(name: string, callback: () => void): MotionHandle {
-		let handle: MotionHandle | undefined;
+		const handleRef: { current?: MotionHandle } = {};
 		const cancelFrame = this.nextFrame(`motion.${name}`, () => {
-			if (handle) this.handles.delete(handle);
+			if (handleRef.current) this.handles.delete(handleRef.current);
 			callback();
 		});
-		handle = this.createHandle(name, cancelFrame);
+		const handle = this.createHandle(name, cancelFrame);
+		handleRef.current = handle;
 		return handle;
 	}
 
 	delay(name: string, milliseconds: number, callback?: () => void): MotionHandle {
-		let handle: MotionHandle | undefined;
-		let timer: TimerHandle | undefined;
-		timer = setTimer(name, this.readDuration(milliseconds), () => {
-			if (handle) this.handles.delete(handle);
+		const handleRef: { current?: MotionHandle } = {};
+		const timer = setTimer(name, this.readDuration(milliseconds), () => {
+			if (handleRef.current) this.handles.delete(handleRef.current);
 			callback?.();
 		});
-		handle = this.createHandle(name, () => timer?.cancel());
+		const handle = this.createHandle(name, () => timer.cancel());
+		handleRef.current = handle;
 		return handle;
 	}
 
@@ -85,8 +79,7 @@ class Motion extends BaseModule {
 			try {
 				for (const step of steps) {
 					if (cancelled) break;
-					if (step.delayMs && step.delayMs > 0)
-						await this.wait(step.delayMs, controller.signal);
+					if (step.delayMs && step.delayMs > 0) await this.wait(step.delayMs, controller.signal);
 					if (cancelled) break;
 					await step.run?.();
 				}
@@ -168,10 +161,7 @@ class Motion extends BaseModule {
 		this.routeHandleToken = undefined;
 	}
 
-	private readonly handleRoutePreparation = async (event: {
-		id: number;
-		signal: AbortSignal;
-	}): Promise<void> => {
+	private readonly handleRoutePreparation = async (event: { id: number; signal: AbortSignal }): Promise<void> => {
 		this.nextRouteMotionToken();
 		this.clearRouteHandle();
 		const root = document.documentElement;
@@ -194,17 +184,13 @@ class Motion extends BaseModule {
 		setDataset(root, "routeMotion", "entering");
 		this.routeHandle = this.queueFrame("route.enter", () => {
 			if (!this.ownsRouteHandle(token)) return;
-			this.routeHandle = this.delay(
-				"route.enter.complete",
-				settings.motion.routeEnterMs,
-				() => {
-					if (!this.ownsRouteHandle(token)) return;
-					setDataset(document.documentElement, "pageState", "idle");
-					removeDataset(document.documentElement, "routeMotion");
-					this.routeHandle = undefined;
-					this.routeHandleToken = undefined;
-				},
-			);
+			this.routeHandle = this.delay("route.enter.complete", settings.motion.routeEnterMs, () => {
+				if (!this.ownsRouteHandle(token)) return;
+				setDataset(document.documentElement, "pageState", "idle");
+				removeDataset(document.documentElement, "routeMotion");
+				this.routeHandle = undefined;
+				this.routeHandleToken = undefined;
+			});
 			this.routeHandleToken = token;
 		});
 		this.routeHandleToken = token;
@@ -234,12 +220,6 @@ class Motion extends BaseModule {
 }
 
 export const motion = new Motion();
-export const nextMotionFrame = (name: string, callback: () => void): MotionHandle =>
-	motion.queueFrame(name, callback);
-export const delayMotion = (
-	name: string,
-	milliseconds: number,
-	callback?: () => void,
-): MotionHandle => motion.delay(name, milliseconds, callback);
-export const runMotionSequence = (name: string, steps: MotionStep[]): MotionHandle =>
-	motion.runSequence(name, steps);
+export const nextMotionFrame = (name: string, callback: () => void): MotionHandle => motion.queueFrame(name, callback);
+export const delayMotion = (name: string, milliseconds: number, callback?: () => void): MotionHandle => motion.delay(name, milliseconds, callback);
+export const runMotionSequence = (name: string, steps: MotionStep[]): MotionHandle => motion.runSequence(name, steps);

@@ -179,11 +179,7 @@
 	}
 
 	[data-ui="link"] {
-		text-decoration-color: color-mix(
-			in srgb,
-			currentColor calc(100% * var(--ui-active-ratio)),
-			transparent
-		);
+		text-decoration-color: color-mix(in srgb, currentColor calc(100% * var(--ui-active-ratio)), transparent);
 	}
 }
 

@@ -32,36 +32,24 @@ const CRAWLER_GROUPS = [
 	},
 	{
 		label: "LLMs",
-		agents: [
-			"OAI-SearchBot",
-			"GPTBot",
-			"ChatGPT-User",
-			"ClaudeBot",
-			"Claude-User",
-			"Claude-SearchBot",
-			"PerplexityBot",
-			"Perplexity-User",
-		],
+		agents: ["OAI-SearchBot", "GPTBot", "ChatGPT-User", "ClaudeBot", "Claude-User", "Claude-SearchBot", "PerplexityBot", "Perplexity-User"],
 	},
 ] as const;
 
 type CrawlerGroup = (typeof CRAWLER_GROUPS)[number];
 
-const renderCrawlerGroup = (group: CrawlerGroup): string[] => [
-	`# ${group.label}`,
-	...group.agents.map((agent) => `User-agent: ${agent}`),
-	...PUBLIC_PATHS.map((path) => `Allow: ${path}`),
-];
+const renderCrawlerGroup = (group: CrawlerGroup): string[] => [`# ${group.label}`, ...group.agents.map((agent) => `User-agent: ${agent}`), ...PUBLIC_PATHS.map((path) => `Allow: ${path}`)];
+const renderCrawlerSections = (): string[] => {
+	const lines: string[] = [];
+	for (const group of CRAWLER_GROUPS) {
+		lines.push("", ...renderCrawlerGroup(group));
+	}
+	return lines;
+};
 
 export const GET = (): Response =>
 	new Response(
-		[
-			"# Public discovery policy: allow search engines, AI crawlers, and user-triggered fetchers.",
-			...CRAWLER_GROUPS.flatMap((group) => ["", ...renderCrawlerGroup(group)]),
-			"",
-			`Sitemap: ${absoluteSiteUrl("/sitemap.xml")}`,
-			"",
-		].join("\n"),
+		["# Public discovery policy: allow search engines, AI crawlers, and user-triggered fetchers.", ...renderCrawlerSections(), "", `Sitemap: ${absoluteSiteUrl("/sitemap.xml")}`, ""].join("\n"),
 		{
 			headers: {
 				"Cache-Control": "public, max-age=0, must-revalidate",

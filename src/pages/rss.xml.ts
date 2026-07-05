@@ -1,20 +1,12 @@
-import { SITE } from "@/data/site";
 import { FEED_ITEMS } from "@/data/routes";
-import {
-	absoluteSiteUrl,
-	escapeXml,
-	latestFeedDate,
-	sortFeedItems,
-	type FeedItem,
-} from "@/lib/seo";
+import { SITE } from "@/data/site";
+import { absoluteSiteUrl, escapeXml, latestFeedDate, sortFeedItems, type FeedItem } from "@/lib/seo";
 
 const buildItem = (item: FeedItem): string => {
 	const url = absoluteSiteUrl(item.path);
 	const guid = item.id ?? url;
 	const isPermaLink = item.id === undefined;
-	const categories = (item.tags ?? [])
-		.map((tag) => `\n\t\t<category>${escapeXml(tag)}</category>`)
-		.join("");
+	const categories = (item.tags ?? []).map((tag) => `\n\t\t<category>${escapeXml(tag)}</category>`).join("");
 
 	return [
 		"\t<item>",

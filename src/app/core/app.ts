@@ -10,6 +10,8 @@ export type AppConfig = {
 	getScroll: () => ScrollState;
 	beforeFrame?: (frame: Frame) => void;
 	afterFrame?: (frame: Frame) => void;
+	profile?: <T>(label: string, callback: () => T) => T;
+	shouldRunContinuously?: () => boolean;
 };
 
 type PendingCallback = {
@@ -62,11 +64,7 @@ export class App {
 		window.addEventListener("resize", this.handleResize, { passive: true });
 		document.addEventListener("visibilitychange", this.handleVisibilityChange);
 		setDataset(document.documentElement, "runtime", "ready");
-		setDataset(
-			document.documentElement,
-			"runtimeVisible",
-			String(document.visibilityState === "visible"),
-		);
+		setDataset(document.documentElement, "runtimeVisible", String(document.visibilityState === "visible"));
 		this.requestFrame("app:start");
 	}
 
@@ -97,11 +95,7 @@ export class App {
 	refreshPage(reason = "route:refresh"): void {
 		if (!this.started) return;
 		setDataset(document.documentElement, "runtime", "ready");
-		setDataset(
-			document.documentElement,
-			"runtimeVisible",
-			String(document.visibilityState === "visible"),
-		);
+		setDataset(document.documentElement, "runtimeVisible", String(document.visibilityState === "visible"));
 		for (const module of this.modules) this.runLifecycle(module, "refresh");
 		for (const module of this.modules) this.runLifecycle(module, "resize");
 		this.requestFrame(reason);
@@ -145,8 +139,7 @@ export class App {
 			{
 				root: document,
 				requestFrame: (reason?: string) => this.requestFrame(reason),
-				nextFrame: (reason: string, callback: () => void) =>
-					this.nextFrame(reason, callback),
+				nextFrame: (reason: string, callback: () => void) => this.nextFrame(reason, callback),
 				reportError: (name: string, error: unknown) => this.recordError({ name }, error),
 			},
 			{
@@ -242,7 +235,9 @@ export class App {
 			for (const module of this.modules) {
 				if (!module.update) continue;
 				try {
-					needsNextFrame = module.update.call(module, frame) === true || needsNextFrame;
+					const update = (): boolean | void => module.update?.(frame);
+					const result = this.config.profile ? this.config.profile(module.name, update) : update();
+					needsNextFrame = result === true || needsNextFrame;
 				} catch (error) {
 					this.recordError(module, error);
 				}
@@ -256,10 +251,7 @@ export class App {
 		} catch (error) {
 			this.recordError({ name: "frame" }, error);
 		} finally {
-			shouldContinue =
-				needsNextFrame ||
-				this.requestedDuringTick ||
-				this.pendingCallbacks.some((callback) => !callback.cancelled);
+			shouldContinue = this.config.shouldRunContinuously?.() === true || needsNextFrame || this.requestedDuringTick || this.pendingCallbacks.some((callback) => !callback.cancelled);
 			this.ticking = false;
 
 			if (!shouldContinue) this.lastTime = 0;
@@ -274,11 +266,7 @@ export class App {
 
 	private readonly handleVisibilityChange = (): void => {
 		this.lastTime = 0;
-		setDataset(
-			document.documentElement,
-			"runtimeVisible",
-			String(document.visibilityState === "visible"),
-		);
+		setDataset(document.documentElement, "runtimeVisible", String(document.visibilityState === "visible"));
 		if (document.visibilityState === "visible") this.requestFrame("document:visibility");
 	};
 }

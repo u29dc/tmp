@@ -1,5 +1,5 @@
-import { SITE } from "@/data/site";
 import { FEED_ITEMS } from "@/data/routes";
+import { SITE } from "@/data/site";
 import { absoluteSiteUrl, sortFeedItems, type FeedItem } from "@/lib/seo";
 
 type JsonFeedAuthor = {

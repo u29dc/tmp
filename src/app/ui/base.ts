@@ -85,10 +85,7 @@ export abstract class Component extends BaseModule {
 		const current = isCurrent(state.element);
 		const hovering = !disabled && frame.input.pointer.path.includes(state.element);
 		const focused = !disabled && document.activeElement === state.element;
-		const keyboardPressed =
-			focused &&
-			(frame.input.keyboard.activeKeys.includes("Enter") ||
-				frame.input.keyboard.activeKeys.includes(" "));
+		const keyboardPressed = focused && (frame.input.keyboard.activeKeys.includes("Enter") || frame.input.keyboard.activeKeys.includes(" "));
 		const pressed = !disabled && ((hovering && frame.input.pointer.isDown) || keyboardPressed);
 
 		state.isDisabled = disabled;
@@ -102,30 +99,10 @@ export abstract class Component extends BaseModule {
 		if (wasPressed && !pressed) state.releaseFrames = 1;
 		else if (state.releaseFrames > 0 && state.pressRatio > 0) state.releaseFrames += 1;
 		else if (state.pressRatio === 0) state.releaseFrames = 0;
-		const nextHover = damp(
-			state.hoverRatio,
-			hovering ? 1 : 0,
-			settings.interaction.ratioLambda,
-			frame.dt,
-		);
-		const nextFocus = damp(
-			state.focusRatio,
-			focused ? 1 : 0,
-			settings.interaction.ratioLambda,
-			frame.dt,
-		);
-		const nextPress = damp(
-			state.pressRatio,
-			pressed ? 1 : 0,
-			settings.interaction.pressLambda,
-			frame.dt,
-		);
-		const nextActive = damp(
-			state.activeRatio,
-			current || focused || hovering ? 1 : 0,
-			settings.interaction.ratioLambda,
-			frame.dt,
-		);
+		const nextHover = damp(state.hoverRatio, hovering ? 1 : 0, settings.interaction.ratioLambda, frame.dt);
+		const nextFocus = damp(state.focusRatio, focused ? 1 : 0, settings.interaction.ratioLambda, frame.dt);
+		const nextPress = damp(state.pressRatio, pressed ? 1 : 0, settings.interaction.pressLambda, frame.dt);
+		const nextActive = damp(state.activeRatio, current || focused || hovering ? 1 : 0, settings.interaction.ratioLambda, frame.dt);
 		const changed =
 			state.changed ||
 			Math.abs(nextHover - state.hoverRatio) > settings.interaction.settleEpsilon ||
@@ -151,25 +128,17 @@ export abstract class Component extends BaseModule {
 		setStyleProperty(state.element, "--ui-hover-ratio", fixed(state.hoverRatio, 4));
 		setStyleProperty(state.element, "--ui-focus-ratio", fixed(state.focusRatio, 4));
 		setStyleProperty(state.element, "--ui-active-ratio", fixed(state.activeRatio, 4));
-		setStyleProperty(
-			state.element,
-			"--ui-press-scale",
-			fixed(1 - state.pressRatio * (1 - settings.interaction.pressScale), 4),
-		);
+		setStyleProperty(state.element, "--ui-press-scale", fixed(1 - state.pressRatio * (1 - settings.interaction.pressScale), 4));
 		setDataset(state.element, "uiState", readUiState(state));
 		state.changed = false;
 	}
 }
 
-const isDisabled = (element: HTMLElement): boolean =>
-	element.matches(":disabled, [aria-disabled='true']");
+const isDisabled = (element: HTMLElement): boolean => element.matches(":disabled, [aria-disabled='true']");
 
 const isCurrent = (element: HTMLElement): boolean => {
 	const ariaCurrent = element.getAttribute("aria-current");
-	return (
-		element.dataset["uiCurrent"] !== undefined ||
-		(ariaCurrent !== null && ariaCurrent !== "false")
-	);
+	return element.dataset["uiCurrent"] !== undefined || (ariaCurrent !== null && ariaCurrent !== "false");
 };
 
 const readUiState = (state: InteractiveState): string => {

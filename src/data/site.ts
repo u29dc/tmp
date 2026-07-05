@@ -1,6 +1,6 @@
 import type { SiteImage } from "@/data/media";
-import type { SitePath } from "@/lib/seo";
 import { resolveSiteNamespace, resolveSiteUrl } from "@/lib/origin";
+import type { SitePath } from "@/lib/seo";
 
 export type SiteConfig = {
 	name: string;

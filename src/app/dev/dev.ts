@@ -3,6 +3,10 @@ import { createDevPane, type DevPane } from "@/app/dev/pane";
 
 export type DevTools = {
 	sync: () => void;
+	beginFrame: (time: number) => void;
+	endFrame: () => void;
+	profile: <T>(label: string, callback: () => T) => T;
+	renderFrame: (time: number) => void;
 	dispose: () => void;
 };
 
@@ -25,6 +29,18 @@ export const createDevTools = (flag: BooleanFlag): DevTools => {
 			const state = flag.sync();
 			if (state.enabled) mount();
 			else dispose();
+		},
+		beginFrame(time): void {
+			pane?.beginFrame(time);
+		},
+		endFrame(): void {
+			pane?.endFrame();
+		},
+		profile(label, callback) {
+			return pane ? pane.profile(label, callback) : callback();
+		},
+		renderFrame(time): void {
+			pane?.renderFrame(time);
 		},
 		dispose,
 	};
