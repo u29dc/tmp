@@ -10,7 +10,7 @@
 	"scripts": {
 		"commitlint": "bunx commitlint --edit",
 		"prepare": "husky",
-		"dev": "bunx astro dev",
+		"dev": "bunx astro dev --background",
 		"build": "bun run astro:build && bun run util:minify",
 		"preview": "bunx astro preview",
 		"deploy": "bun run util:check && bunx wrangler deploy",
@@ -38,7 +38,7 @@
 		"@minify-html/node": "^0.18.1",
 		"@tailwindcss/vite": "^4.3.2",
 		"@types/node": "^26.1.0",
-		"@typescript/native-preview": "^7.0.0-dev.20260706.1",
+		"@typescript/native-preview": "^7.0.0-dev.20260707.2",
 		"astro": "^7.0.6",
 		"cfg": "https://github.com/u29dc/cfg/releases/download/v1.0.7/cfg-1.0.7.tgz",
 		"husky": "^9.1.7",
@@ -49,6 +49,6 @@
 		"rolldown": "^1.1.4",
 		"tailwindcss": "^4.3.2",
 		"typescript": "^6.0.3",
-		"wrangler": "^4.107.0"
+		"wrangler": "^4.108.0"
 	}
 }
