@@ -2,6 +2,7 @@ import { SITE } from "@/data/site";
 import { absoluteSiteUrl } from "@/lib/seo";
 
 const PUBLIC_PATHS = ["/", SITE.feeds.rss, SITE.feeds.json, SITE.feeds.llms] as const;
+const CONTENT_SIGNAL = "Content-Signal: ai-train=yes, search=yes, ai-input=yes";
 
 const CRAWLER_GROUPS = [
 	{
@@ -38,7 +39,12 @@ const CRAWLER_GROUPS = [
 
 type CrawlerGroup = (typeof CRAWLER_GROUPS)[number];
 
-const renderCrawlerGroup = (group: CrawlerGroup): string[] => [`# ${group.label}`, ...group.agents.map((agent) => `User-agent: ${agent}`), ...PUBLIC_PATHS.map((path) => `Allow: ${path}`)];
+const renderCrawlerGroup = (group: CrawlerGroup): string[] => [
+	`# ${group.label}`,
+	...group.agents.map((agent) => `User-agent: ${agent}`),
+	CONTENT_SIGNAL,
+	...PUBLIC_PATHS.map((path) => `Allow: ${path}`),
+];
 const renderCrawlerSections = (): string[] => {
 	const lines: string[] = [];
 	for (const group of CRAWLER_GROUPS) {

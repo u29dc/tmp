@@ -1,4 +1,4 @@
-export const DEFAULT_SITE_URL = "https://example.com";
+export const DEFAULT_SITE_URL = "https://tmp.u29dc.workers.dev";
 
 const ENVIRONMENT_LABELS = new Set(["dev", "preview", "staging", "test", "www"]);
 const PUBLIC_SUFFIX_PAIRS = new Set(["ac.uk", "co.jp", "co.uk", "com.au", "com.br", "com.tr", "com.ua", "com.cn", "net.au", "net.cn", "net.nz", "org.au", "org.cn", "org.nz"]);
