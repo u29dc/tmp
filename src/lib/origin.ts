@@ -1,6 +1,8 @@
 export const DEFAULT_SITE_URL = "https://tmp.u29dc.workers.dev";
+export const DEFAULT_SITE_NAMESPACE = "tmp";
 
 const ENVIRONMENT_LABELS = new Set(["dev", "preview", "staging", "test", "www"]);
+const PLATFORM_SUFFIX_PAIRS = new Set(["pages.dev", "vercel.app", "workers.dev"]);
 const PUBLIC_SUFFIX_PAIRS = new Set(["ac.uk", "co.jp", "co.uk", "com.au", "com.br", "com.tr", "com.ua", "com.cn", "net.au", "net.cn", "net.nz", "org.au", "org.cn", "org.nz"]);
 const NAMESPACE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -45,13 +47,18 @@ export const resolveSiteNamespace = (siteUrl: string, override?: string): string
 		return custom;
 	}
 
-	const hostname = new URL(normalizeSiteUrl(siteUrl)).hostname.toLowerCase();
+	const normalizedSiteUrl = normalizeSiteUrl(siteUrl);
+	if (normalizedSiteUrl === DEFAULT_SITE_URL) return DEFAULT_SITE_NAMESPACE;
+
+	const hostname = new URL(normalizedSiteUrl).hostname.toLowerCase();
 	const labels = hostname.split(".").filter(Boolean);
 	while (labels.length > 1 && ENVIRONMENT_LABELS.has(labels[0] ?? "")) labels.shift();
 	if (labels.length === 0) return "site";
 	if (labels.length === 1) return normalizeNamespaceLabel(labels[0] ?? "site");
 
 	const suffix = labels.slice(-2).join(".");
+	if (PLATFORM_SUFFIX_PAIRS.has(suffix)) return normalizeNamespaceLabel(labels[0] ?? "site");
+
 	const labelIndex = PUBLIC_SUFFIX_PAIRS.has(suffix) ? labels.length - 3 : labels.length - 2;
 	return normalizeNamespaceLabel(labels[Math.max(0, labelIndex)] ?? "site");
 };

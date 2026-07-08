@@ -4,6 +4,11 @@ import { composedPath } from "@/app/utils/dom";
 
 type InputIntentHandler<T> = (intent: T) => void;
 
+export type InputWheelCancelRequest = {
+	set: (enabled: boolean) => void;
+	dispose: () => void;
+};
+
 type InputModifiers = {
 	altKey: boolean;
 	ctrlKey: boolean;
@@ -19,6 +24,7 @@ export type InputWheelIntent = InputModifiers & {
 	rawDy: number;
 	deltaMode: number;
 	source: "wheel";
+	cancelable: boolean;
 	target: EventTarget | null;
 	path: EventTarget[];
 	readonly defaultPrevented: boolean;
@@ -80,7 +86,10 @@ class Input extends BaseModule {
 	private generation = 0;
 	private activeKeys = new Map<string, string>();
 	private readonly wheelHandlers = new Set<InputIntentHandler<InputWheelIntent>>();
+	private readonly wheelCancelRequests = new Set<symbol>();
 	private readonly clickHandlers = new Set<InputIntentHandler<InputClickIntent>>();
+	private wheelListenerBound = false;
+	private wheelListenerCancelable = false;
 
 	override preInit(context: Context): void {
 		super.preInit(context);
@@ -88,7 +97,7 @@ class Input extends BaseModule {
 		document.addEventListener("pointerdown", this.handlePointerDown, { passive: true });
 		document.addEventListener("pointerup", this.handlePointerUp, { passive: true });
 		document.addEventListener("pointercancel", this.handlePointerUp, { passive: true });
-		document.addEventListener("wheel", this.handleWheel, { passive: false });
+		this.bindWheelListener(this.wheelCancelRequests.size > 0);
 		document.addEventListener("click", this.handleClick);
 		document.addEventListener("keydown", this.handleKeyDown);
 		document.addEventListener("keyup", this.handleKeyUp);
@@ -99,7 +108,7 @@ class Input extends BaseModule {
 		this.addCleanup(() => document.removeEventListener("pointerdown", this.handlePointerDown));
 		this.addCleanup(() => document.removeEventListener("pointerup", this.handlePointerUp));
 		this.addCleanup(() => document.removeEventListener("pointercancel", this.handlePointerUp));
-		this.addCleanup(() => document.removeEventListener("wheel", this.handleWheel));
+		this.addCleanup(() => this.unbindWheelListener());
 		this.addCleanup(() => document.removeEventListener("click", this.handleClick));
 		this.addCleanup(() => document.removeEventListener("keydown", this.handleKeyDown));
 		this.addCleanup(() => document.removeEventListener("keyup", this.handleKeyUp));
@@ -142,6 +151,7 @@ class Input extends BaseModule {
 
 	override dispose(): void {
 		this.wheelHandlers.clear();
+		this.wheelCancelRequests.clear();
 		this.clickHandlers.clear();
 		super.dispose();
 	}
@@ -159,6 +169,25 @@ class Input extends BaseModule {
 		return () => this.wheelHandlers.delete(handler);
 	}
 
+	createWheelCancelRequest(): InputWheelCancelRequest {
+		const token = Symbol("wheel-cancel");
+		let disposed = false;
+		return {
+			set: (enabled) => {
+				if (disposed) return;
+				if (enabled) this.wheelCancelRequests.add(token);
+				else this.wheelCancelRequests.delete(token);
+				this.syncWheelListener();
+			},
+			dispose: () => {
+				if (disposed) return;
+				disposed = true;
+				this.wheelCancelRequests.delete(token);
+				this.syncWheelListener();
+			},
+		};
+	}
+
 	onClickIntent(handler: InputIntentHandler<InputClickIntent>): () => void {
 		this.clickHandlers.add(handler);
 		return () => this.clickHandlers.delete(handler);
@@ -171,6 +200,27 @@ class Input extends BaseModule {
 
 	private activeKeyValues(): string[] {
 		return Array.from(new Set(this.activeKeys.values()));
+	}
+
+	private bindWheelListener(cancelable: boolean): void {
+		if (this.wheelListenerBound) document.removeEventListener("wheel", this.handleWheel);
+		document.addEventListener("wheel", this.handleWheel, { passive: !cancelable });
+		this.wheelListenerBound = true;
+		this.wheelListenerCancelable = cancelable;
+	}
+
+	private unbindWheelListener(): void {
+		if (!this.wheelListenerBound) return;
+		document.removeEventListener("wheel", this.handleWheel);
+		this.wheelListenerBound = false;
+		this.wheelListenerCancelable = false;
+	}
+
+	private syncWheelListener(): void {
+		if (!this.wheelListenerBound) return;
+		const cancelable = this.wheelCancelRequests.size > 0;
+		if (cancelable === this.wheelListenerCancelable) return;
+		this.bindWheelListener(cancelable);
 	}
 
 	private updatePointer(event: PointerEvent, options?: { pressed?: boolean; released?: boolean }): void {
@@ -309,7 +359,7 @@ class Input extends BaseModule {
 	};
 
 	private emitWheelIntent(event: WheelEvent, dx: number, dy: number): void {
-		const intent = createWheelIntent(event, dx, dy);
+		const intent = createWheelIntent(event, dx, dy, this.wheelListenerCancelable && event.cancelable);
 		this.emitIntent("input.wheel", this.wheelHandlers, intent);
 	}
 
@@ -340,7 +390,7 @@ const readModifiers = (event: Pick<MouseEvent | WheelEvent, "altKey" | "ctrlKey"
 	isModified: event.altKey || event.ctrlKey || event.metaKey || event.shiftKey,
 });
 
-const createWheelIntent = (event: WheelEvent, dx: number, dy: number): InputWheelIntent => ({
+const createWheelIntent = (event: WheelEvent, dx: number, dy: number, cancelable: boolean): InputWheelIntent => ({
 	...readModifiers(event),
 	dx,
 	dy,
@@ -348,12 +398,15 @@ const createWheelIntent = (event: WheelEvent, dx: number, dy: number): InputWhee
 	rawDy: event.deltaY,
 	deltaMode: event.deltaMode,
 	source: "wheel",
+	cancelable,
 	target: event.target,
 	path: composedPath(event),
 	get defaultPrevented() {
 		return event.defaultPrevented;
 	},
-	preventDefault: () => event.preventDefault(),
+	preventDefault: () => {
+		if (cancelable) event.preventDefault();
+	},
 });
 
 const createClickIntent = (event: MouseEvent): InputClickIntent => ({
@@ -371,4 +424,5 @@ const createClickIntent = (event: MouseEvent): InputClickIntent => ({
 export const input = new Input();
 export const getInputState = (): InputState => input.getState();
 export const onInputWheelIntent = (handler: InputIntentHandler<InputWheelIntent>): (() => void) => input.onWheelIntent(handler);
+export const createInputWheelCancelRequest = (): InputWheelCancelRequest => input.createWheelCancelRequest();
 export const onInputClickIntent = (handler: InputIntentHandler<InputClickIntent>): (() => void) => input.onClickIntent(handler);

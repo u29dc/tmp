@@ -1,7 +1,7 @@
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
 import type { DeviceProfile, ScrollRangeState, ScrollState } from "@/app/core/state";
-import { onInputClickIntent, onInputWheelIntent, type InputClickIntent, type InputWheelIntent } from "@/app/systems/input";
+import { createInputWheelCancelRequest, onInputClickIntent, onInputWheelIntent, type InputClickIntent, type InputWheelCancelRequest, type InputWheelIntent } from "@/app/systems/input";
 import { setRouteHash } from "@/app/systems/route";
 import { focusElement, readClassToken, removeDataset, removeStyleProperty, setDataset, setStyleProperty, toggleClass } from "@/app/utils/dom";
 import { clamp, damp, fit, fixed, parseFiniteFloat, saturate, signedDirection, unlerp } from "@/app/utils/math";
@@ -83,14 +83,20 @@ class Scroll extends BaseModule {
 	private writeY: number | undefined;
 	private profileGeneration = -1;
 	private latestProfile: DeviceProfile | undefined;
+	private wheelCancelRequest: InputWheelCancelRequest | undefined;
 	private readonly animator = new ScrollAnimator();
 
 	override preInit(context: Context): void {
 		super.preInit(context);
 		this.latestProfile = context.profile;
+		this.wheelCancelRequest = createInputWheelCancelRequest();
 		this.applyCapability(context.profile);
 		window.addEventListener("scroll", this.handleScroll, { passive: true });
 		this.scan();
+		this.addCleanup(() => {
+			this.wheelCancelRequest?.dispose();
+			this.wheelCancelRequest = undefined;
+		});
 		this.addCleanup(onInputWheelIntent(this.handleWheelIntent));
 		this.addCleanup(onInputClickIntent(this.handleClickIntent));
 		this.addCleanup(() => window.removeEventListener("scroll", this.handleScroll));
@@ -269,6 +275,7 @@ class Scroll extends BaseModule {
 		const enabled = profile ? this.shouldEnhance(profile) : false;
 		const changed = enabled !== this.smoothEnabled;
 		this.smoothEnabled = enabled;
+		this.wheelCancelRequest?.set(enabled);
 		setDataset(document.documentElement, "smoothScroll", enabled ? "enhanced" : "native");
 		if (changed && !enabled) this.syncFromWindow("native", performance.now());
 		if (changed) this.requestFrame("scroll:capability");
@@ -634,7 +641,7 @@ class ScrollAnimator {
 const readSmoothWheelDeltaY = (intent: InputWheelIntent): number => (intent.deltaMode === WheelEvent.DOM_DELTA_PAGE ? intent.dy * settings.scroll.pageMultiplier : intent.dy);
 
 const shouldUseNativeWheel = (intent: InputWheelIntent, enabled: boolean): boolean => {
-	if (!enabled || intent.defaultPrevented) return true;
+	if (!enabled || !intent.cancelable || intent.defaultPrevented) return true;
 	if (intent.ctrlKey || intent.metaKey || intent.shiftKey) return true;
 	if (isHorizontalWheelIntent(intent)) return true;
 	if (!(intent.target instanceof Element)) return false;

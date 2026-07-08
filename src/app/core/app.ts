@@ -1,3 +1,4 @@
+import { reportRuntimeError } from "@/app/core/logger";
 import type { Context, Frame, Module } from "@/app/core/module";
 import type { DeviceProfile, InputState, RouteState, ScrollState } from "@/app/core/state";
 import { cancelRuntimeTimers, setTimerScheduler } from "@/app/core/timer";
@@ -205,13 +206,8 @@ export class App {
 	}
 
 	private recordError(module: Pick<Module, "name">, error: unknown): void {
-		const message = error instanceof Error ? error.message : String(error);
-		this.traces.set(module.name, { name: module.name, lastError: message });
-		if (import.meta.env.DEV) {
-			queueMicrotask(() => {
-				throw error instanceof Error ? error : new Error(`[app:${module.name}] ${message}`);
-			});
-		}
+		const report = reportRuntimeError(module.name, error);
+		this.traces.set(module.name, { name: module.name, lastError: report.message });
 	}
 
 	private readonly tick = (timestamp: number): void => {
