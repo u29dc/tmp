@@ -1,4 +1,4 @@
-import { createCfg, type Cfg, type Control, type Pane, type Profiler } from "cfg";
+import { createCfg, type Cfg, type Control, type Pane } from "cfg";
 
 import { clearSettingsDraft, scheduleSettingsDraftSave } from "@/app/core/draft";
 import { createSettingsPatch, resetSettings, SETTING_BOUNDS, settings, type ThemeColors } from "@/app/core/settings";
@@ -16,6 +16,14 @@ const COPY_TITLE_RESET_MS = 1600;
 const FRAME_BUDGET_MS = 16.67;
 const FRAME_GRAPH_MAX_MS = 40;
 const FPS_GRAPH_MAX = 144;
+
+type DevProfiler = {
+	measure: <T>(label: string, callback: () => T) => T;
+};
+
+const noopProfiler: DevProfiler = {
+	measure: (_label, callback) => callback(),
+};
 
 export type DevPane = {
 	readonly element: HTMLElement;
@@ -36,9 +44,9 @@ export const createDevPane = (): DevPane => {
 		scheduler: "external",
 		theme: settings.theme.mode,
 	});
-	const runtime = cfg.pane({ id: "runtime", title: "Runtime" });
-	const telemetry = cfg.pane({ id: "telemetry", title: "Telemetry" });
-	const profiler = addTelemetryControls(telemetry);
+	const settingsPane = cfg.pane({ id: "settings", title: "Settings" });
+	const stats = cfg.pane({ id: "stats", title: "Stats" });
+	const profiler = addTelemetryControls(stats);
 
 	let suppressDraftSave = false;
 	let copyTitleReset: number | undefined;
@@ -70,12 +78,10 @@ export const createDevPane = (): DevPane => {
 		for (const control of boundControls) control.refresh();
 	};
 
-	addThemeControls(runtime, bind);
-	addInteractionControls(runtime, bind);
-	addScrollControls(runtime, bind);
-	addMotionControls(runtime, bind);
-	addDebugControls(runtime, bind);
-	addActionControls(runtime, cfg, bind, suppressDraftSaveUntilNextTask, refreshBoundControls, (timer) => {
+	addThemeControls(settingsPane, bind);
+	addScrollControls(settingsPane, bind);
+	addRouterControls(settingsPane, bind);
+	addActionControls(settingsPane, cfg, bind, suppressDraftSaveUntilNextTask, refreshBoundControls, (timer) => {
 		clearCopyTitleReset();
 		copyTitleReset = timer;
 	});
@@ -130,38 +136,6 @@ const addColorControls = (folder: Pane, colors: ThemeColors, path: string, bind:
 	bind(folder.color(colors, "focus", { label: "Focus" }), `${path}.focus`);
 };
 
-const addInteractionControls = (pane: Pane, bind: Binder): void => {
-	const folder = pane.folder("Interaction");
-	bind(
-		folder.numberSlider(settings.interaction, "ratioLambda", {
-			label: "Hover lambda",
-			...SETTING_BOUNDS.interaction.ratioLambda,
-		}),
-		"interaction.ratioLambda",
-	);
-	bind(
-		folder.numberSlider(settings.interaction, "pressLambda", {
-			label: "Press lambda",
-			...SETTING_BOUNDS.interaction.pressLambda,
-		}),
-		"interaction.pressLambda",
-	);
-	bind(
-		folder.numberSlider(settings.interaction, "pressScale", {
-			label: "Press scale",
-			...SETTING_BOUNDS.interaction.pressScale,
-		}),
-		"interaction.pressScale",
-	);
-	bind(
-		folder.numberSlider(settings.interaction, "settleEpsilon", {
-			label: "Settle epsilon",
-			...SETTING_BOUNDS.interaction.settleEpsilon,
-		}),
-		"interaction.settleEpsilon",
-	);
-};
-
 const addScrollControls = (pane: Pane, bind: Binder): void => {
 	const folder = pane.folder("Scroll");
 	bind(folder.toggle(settings.scroll, "smoothEnabled", { label: "Smooth" }), "scroll.smoothEnabled");
@@ -173,30 +147,16 @@ const addScrollControls = (pane: Pane, bind: Binder): void => {
 		"scroll.lambda",
 	);
 	bind(
-		folder.numberSlider(settings.scroll, "settlePx", {
-			label: "Settle px",
-			...SETTING_BOUNDS.scroll.settlePx,
-		}),
-		"scroll.settlePx",
-	);
-	bind(
 		folder.numberSlider(settings.scroll, "wheelMultiplier", {
 			label: "Wheel",
 			...SETTING_BOUNDS.scroll.wheelMultiplier,
 		}),
 		"scroll.wheelMultiplier",
 	);
-	bind(
-		folder.numberSlider(settings.scroll, "pageMultiplier", {
-			label: "Page",
-			...SETTING_BOUNDS.scroll.pageMultiplier,
-		}),
-		"scroll.pageMultiplier",
-	);
 };
 
-const addMotionControls = (pane: Pane, bind: Binder): void => {
-	const folder = pane.folder("Motion", { collapsed: true });
+const addRouterControls = (pane: Pane, bind: Binder): void => {
+	const folder = pane.folder("Router");
 	bind(
 		folder.numberSlider(settings.motion, "routeExitMs", {
 			label: "Route exit",
@@ -220,15 +180,7 @@ const addMotionControls = (pane: Pane, bind: Binder): void => {
 	);
 };
 
-const addDebugControls = (pane: Pane, bind: Binder): void => {
-	const folder = pane.folder("Debug", { collapsed: true });
-	bind(folder.toggle(settings.runtime, "continuous", { label: "Loop" }), "runtime.continuous");
-	bind(folder.toggle(settings.debug, "enabled", { label: "Enabled" }), "debug.enabled");
-	bind(folder.toggle(settings.debug, "showFrameStats", { label: "Frame stats" }), "debug.showFrameStats");
-	bind(folder.toggle(settings.debug, "showScrollState", { label: "Scroll state" }), "debug.showScrollState");
-};
-
-const addTelemetryControls = (pane: Pane): Profiler => {
+const addTelemetryControls = (pane: Pane): DevProfiler => {
 	pane.fpsGraph({ id: "fps", label: "FPS", min: 0, max: FPS_GRAPH_MAX, target: 60 });
 	pane.frameGraph({
 		id: "frame",
@@ -238,20 +190,13 @@ const addTelemetryControls = (pane: Pane): Profiler => {
 		target: FRAME_BUDGET_MS,
 		unit: "ms",
 	});
-	const profiler = pane.profiler({ id: "profiler", label: "Profiler", warning: FRAME_BUDGET_MS });
-	pane.monitor({ id: "frames", label: "Frames", get: () => getPerformanceState().frameCount });
 	pane.monitor({
 		id: "average-frame",
 		label: "Avg ms",
 		get: () => getPerformanceState().averageFrameMs,
 		format: (value) => value.toFixed(2),
 	});
-	pane.monitor({
-		id: "long-frames",
-		label: "Long",
-		get: () => getPerformanceState().longFrameCount,
-	});
-	return profiler;
+	return noopProfiler;
 };
 
 const addActionControls = (
@@ -323,21 +268,13 @@ const copySettingsToClipboard = async (): Promise<void> => {
 const applyAllSettings = (): void => {
 	applyThemeSettings();
 	applyScrollSettings();
-	applyDebugSettings();
-};
-
-const applyDebugSettings = (): void => {
-	const root = document.documentElement;
-	setDataset(root, "debug", settings.debug.enabled);
-	setDataset(root, "debugFrameStats", settings.debug.enabled && settings.debug.showFrameStats);
-	setDataset(root, "debugScrollState", settings.debug.enabled && settings.debug.showScrollState);
 };
 
 const createContainer = (): HTMLElement => {
 	const container = document.createElement("aside");
 	setDataset(container, "controlsPane", "true");
 	setDataset(container, "nativeScroll", "true");
-	container.setAttribute("aria-label", "Runtime controls");
+	container.setAttribute("aria-label", "Settings controls");
 	return container;
 };
 

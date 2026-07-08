@@ -16,11 +16,6 @@ export type AppSettings = {
 	runtime: {
 		continuous: boolean;
 	};
-	debug: {
-		enabled: boolean;
-		showFrameStats: boolean;
-		showScrollState: boolean;
-	};
 	theme: {
 		mode: ThemeMode;
 		light: ThemeColors;
@@ -140,11 +135,6 @@ const NUMBER_PATTERN = /^[+-]?(?:\d+|\d*\.\d+)(?:e[+-]?\d+)?$/i;
 export const createDefaultSettings = (): AppSettings => ({
 	runtime: {
 		continuous: true,
-	},
-	debug: {
-		enabled: false,
-		showFrameStats: false,
-		showScrollState: false,
 	},
 	theme: {
 		mode: "system",

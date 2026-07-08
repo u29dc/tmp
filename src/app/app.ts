@@ -17,7 +17,7 @@ const controlsFlag = createBooleanFlag({
 	param: "controls",
 	storageKey: storageKey("controls"),
 	persistence: "session",
-	defaultValue: import.meta.env.DEV,
+	defaultValue: true,
 });
 
 resetSettings();
