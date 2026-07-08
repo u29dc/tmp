@@ -1,7 +1,7 @@
 import { storageKey } from "@/app/core/namespace";
 import { applySettingsPatch, createSettingsPatch, type SettingsPatch } from "@/app/core/settings";
+import { SETTINGS_DRAFT_SCHEMA } from "@/app/core/storage";
 
-const SETTINGS_DRAFT_SCHEMA = 1;
 const SETTINGS_DRAFT_SAVE_DELAY_MS = 120;
 const SETTINGS_STORAGE_KEY = storageKey("settings");
 

@@ -26,22 +26,15 @@
 	"overrides": [
 		{
 			"files": ["scripts/**/*.ts", "astro.config.ts", "commitlint.config.js", "lint-staged.config.js"],
-			"rules": {
-				"no-console": "off",
-				"no-underscore-dangle": "off"
-			}
+			"rules": { "no-console": "off", "no-underscore-dangle": "off" }
 		},
 		{
 			"files": ["src/layouts/**/*.astro", "src/app/dev/pane.ts"],
-			"rules": {
-				"import/no-unassigned-import": "off"
-			}
+			"rules": { "import/no-unassigned-import": "off" }
 		},
 		{
 			"files": ["src/app/systems/motion.ts"],
-			"rules": {
-				"no-await-in-loop": "off"
-			}
+			"rules": { "no-await-in-loop": "off" }
 		}
 	],
 	"env": {
@@ -53,5 +46,5 @@
 	"globals": {
 		"Bun": "readonly"
 	},
-	"ignorePatterns": ["dist", "node_modules", ".astro", ".wrangler", ".tmp", ".clawpatch"]
+	"ignorePatterns": ["dist", "node_modules", ".astro", ".wrangler", ".tmp", ".clawpatch", "public/boot.js"]
 }

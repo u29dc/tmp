@@ -2,7 +2,7 @@
 	"$schema": "./node_modules/oxfmt/configuration_schema.json",
 	"arrowParens": "always",
 	"endOfLine": "lf",
-	"ignorePatterns": ["dist", "node_modules", ".astro", ".wrangler", ".tmp", ".clawpatch", ".git"],
+	"ignorePatterns": ["dist", "node_modules", ".astro", ".wrangler", ".tmp", ".clawpatch", ".git", "public/boot.js"],
 	"insertFinalNewline": true,
 	"printWidth": 200,
 	"proseWrap": "preserve",

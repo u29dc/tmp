@@ -23,6 +23,10 @@ function byteLength(value: string): number {
 	return Buffer.byteLength(value, "utf8");
 }
 
+function formatBytes(bytes: number): string {
+	return bytes < 1000 ? `${bytes} B` : `${(bytes / 1000).toFixed(1)} kB`;
+}
+
 async function directoryExists(directory: string): Promise<boolean> {
 	return stat(directory)
 		.then((details) => details.isDirectory())
@@ -60,8 +64,9 @@ async function collectHtmlTargets(directory: string): Promise<string[]> {
 
 async function minifyScriptFile(filePath: string): Promise<FileResult> {
 	const source = await readFile(filePath, "utf8");
+	const module = path.basename(filePath) !== "boot.js";
 	const result = minifySync(filePath, source, {
-		module: true,
+		module,
 		compress: false,
 		mangle: false,
 		codegen: {
@@ -71,7 +76,7 @@ async function minifyScriptFile(filePath: string): Promise<FileResult> {
 	});
 
 	parseSync(filePath, result.code, {
-		sourceType: "module",
+		sourceType: module ? "module" : "script",
 	});
 
 	const before = byteLength(source);
@@ -110,7 +115,7 @@ async function minifyHtmlFile(filePath: string): Promise<FileResult> {
 	};
 }
 
-function reportResults(label: string, results: FileResult[]): void {
+function reportResults(kind: string, results: FileResult[]): void {
 	const changed = results.filter((result) => result.changed);
 	const before = results.reduce((total, result) => total + result.before, 0);
 	const after = results.reduce((total, result) => total + result.after, 0);
@@ -118,10 +123,10 @@ function reportResults(label: string, results: FileResult[]): void {
 
 	for (const result of changed) {
 		const savedForFile = result.before - result.after;
-		console.log(`${result.path}: ${result.before} -> ${result.after} bytes (-${savedForFile})`);
+		console.log(`minify: ${kind} ${result.path} ${formatBytes(result.before)} -> ${formatBytes(result.after)} (-${formatBytes(savedForFile)})`);
 	}
 
-	console.log(`Minified ${changed.length}/${results.length} ${label} files. ${before} -> ${after} bytes (-${saved}).`);
+	console.log(`minify: ${kind} ${changed.length}/${results.length} changed ${formatBytes(before)} -> ${formatBytes(after)} (-${formatBytes(saved)})`);
 }
 
 async function main(): Promise<void> {
@@ -131,11 +136,11 @@ async function main(): Promise<void> {
 
 	const scriptTargets = await collectScriptTargets(distPath);
 	const scriptResults = await Promise.all(scriptTargets.map((filePath) => minifyScriptFile(filePath)));
-	reportResults("JS", scriptResults);
+	reportResults("js", scriptResults);
 
 	const htmlTargets = await collectHtmlTargets(distPath);
 	const htmlResults = await Promise.all(htmlTargets.map((filePath) => minifyHtmlFile(filePath)));
-	reportResults("HTML", htmlResults);
+	reportResults("html", htmlResults);
 }
 
 await main();
