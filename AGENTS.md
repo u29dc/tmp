@@ -4,7 +4,7 @@
 
 - Runtime entry: [`src/app/app.ts`](src/app/app.ts)
 - Runtime loop: [`src/app/core/app.ts`](src/app/core/app.ts)
-- Runtime settings: [`src/app/core/settings.ts`](src/app/core/settings.ts)
+- Runtime settings and typed schema: [`src/app/core/settings.ts`](src/app/core/settings.ts)
 - Site metadata: [`src/data/site.ts`](src/data/site.ts)
 - Page registry: [`src/data/pages.ts`](src/data/pages.ts)
 - Document shell: [`src/layouts/BaseLayout.astro`](src/layouts/BaseLayout.astro)
@@ -76,7 +76,7 @@
 ## 6. Runtime And State
 
 - Runtime state is wired through `data-*` attributes and CSS variables, not framework component state.
-- `settings.ts` is the canonical source for hardcoded runtime defaults.
+- `settings.ts` is the canonical typed schema for runtime paths, defaults, bounds, parsing, and patch validation.
 - URL query settings apply after defaults and after the local controls patch.
 - Controls use browser keys named `${site namespace}:controls` and `${site namespace}:settings`.
 - `${site namespace}:controls` is a session flag for the controls surface.
@@ -84,6 +84,7 @@
 - Controls are enabled by default in dev and built deployments, disabled for the current browser session with `?controls=0`, and re-enabled after session opt-out with `?controls=1`.
 - Reset Settings clears `${site namespace}:settings`, reapplies hardcoded defaults, and leaves `${site namespace}:controls` unchanged.
 - Native scroll is the fallback; smooth scrolling is an enhancement gated by settings, device, network, pointer, and motion profile.
+- Same-document hash links bypass `ClientRouter` and remain owned by the scroll system so offsets, history, and focus transfer stay consistent.
 - `settings.runtime.continuous` controls whether the runtime loop stays active while the document is visible. It defaults to `true`; set it to `false` only when deliberately testing demand-driven scheduling.
 
 ## 7. Conventions
