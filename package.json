@@ -46,7 +46,7 @@
 		"oxlint-tsgolint": "^0.24.0",
 		"rolldown": "^1.1.5",
 		"tailwindcss": "^4.3.2",
-		"typescript": "^6.0.3",
-		"wrangler": "^4.107.1"
+		"typescript": "6.0.3",
+		"wrangler": "^4.110.0"
 	}
 }
