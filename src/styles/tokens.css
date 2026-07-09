@@ -86,7 +86,7 @@
 	--duration-quick: 150ms;
 	--duration-medium: 220ms;
 	--duration-slow: 420ms;
-	--duration-page-exit: 500ms;
+	--duration-page-exit: 100ms;
 	--duration-reveal: 360ms;
 	--duration-reveal-stagger: 36ms;
 

@@ -1,5 +1,5 @@
 import { storageKey } from "@/app/core/namespace";
-import { applySettingsPatch, createSettingsPatch, type SettingsPatch } from "@/app/core/settings";
+import { applySettingsPatch, createSettingsPatch, parseSettingsPatch, type SettingPath, type SettingsPatch } from "@/app/core/settings";
 import { SETTINGS_DRAFT_SCHEMA } from "@/app/core/storage";
 
 const SETTINGS_DRAFT_SAVE_DELAY_MS = 120;
@@ -13,7 +13,7 @@ type SettingsDraft = {
 let saveTimer: number | undefined;
 let pageHideBound = false;
 let baseDraftPatch: SettingsPatch = {};
-const dirtyDraftPaths = new Set<string>();
+const dirtyDraftPaths = new Set<SettingPath>();
 
 export const loadSettingsDraft = (): void => {
 	baseDraftPatch = {};
@@ -42,7 +42,7 @@ export const saveSettingsDraft = (): void => {
 	writeSettingsPatch(nextPatch);
 };
 
-export const scheduleSettingsDraftSave = (path: string): void => {
+export const scheduleSettingsDraftSave = (path: SettingPath): void => {
 	if (typeof window === "undefined") return;
 	if (!path) return;
 	dirtyDraftPaths.add(path);
@@ -105,8 +105,8 @@ const parseSettingsDraft = (raw: string): SettingsDraft | undefined => {
 		const candidate = JSON.parse(raw) as unknown;
 		if (!isRecord(candidate)) return undefined;
 		if (candidate["schema"] !== SETTINGS_DRAFT_SCHEMA) return undefined;
-		const patch = candidate["patch"];
-		if (!isSettingsPatch(patch)) return undefined;
+		const patch = parseSettingsPatch(candidate["patch"]);
+		if (!patch) return undefined;
 		return {
 			schema: SETTINGS_DRAFT_SCHEMA,
 			patch,
@@ -114,14 +114,6 @@ const parseSettingsDraft = (raw: string): SettingsDraft | undefined => {
 	} catch {
 		return undefined;
 	}
-};
-
-const isSettingsPatch = (value: unknown): value is SettingsPatch => {
-	if (!isRecord(value)) return false;
-	for (const patchValue of Object.values(value)) {
-		if (typeof patchValue !== "boolean" && typeof patchValue !== "number" && typeof patchValue !== "string") return false;
-	}
-	return true;
 };
 
 const bindPageHideFlush = (): void => {

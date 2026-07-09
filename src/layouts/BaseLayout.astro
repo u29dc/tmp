@@ -3,7 +3,7 @@ import '@/styles/app.css';
 import { mergeImage, type SiteImageOverride } from '@/data/media';
 import { getPageByPath } from '@/data/pages';
 import { SITE } from '@/data/site';
-import { createDefaultSettings } from '@/app/core/settings';
+import { createDefaultSettings, THEME_BOOT_PATHS } from '@/app/core/settings';
 import { absoluteSiteUrl } from '@/lib/seo';
 import Router from '@/app/systems/router.astro';
 
@@ -35,6 +35,7 @@ const ogImageUrl = absoluteSiteUrl(image.path);
 const robots = noindex ? 'noindex, nofollow' : 'index, follow';
 const defaultTheme = createDefaultSettings().theme;
 const themeSettings = {
+	paths: THEME_BOOT_PATHS,
 	mode: defaultTheme.mode,
 	light: {
 		ground: defaultTheme.light.ground,
@@ -66,8 +67,8 @@ const themeSettings = {
 		<meta name="application-name" content={SITE.name} />
 		<meta name="keywords" content={SITE.keywords.join(', ')} />
 		<meta name="robots" content={robots} />
-		<meta name="theme-color" content={SITE.themeColorLight} media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content={SITE.themeColorDark} media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content={defaultTheme.light.ground} media="(prefers-color-scheme: light)" data-theme-color="light" />
+		<meta name="theme-color" content={defaultTheme.dark.ground} media="(prefers-color-scheme: dark)" data-theme-color="dark" />
 		<script is:inline src="/boot.js"></script>
 		<link rel="canonical" href={canonicalUrl} />
 		<link rel="alternate" type="application/rss+xml" href={SITE.feeds.rss} title={`${SITE.name} RSS`} />
@@ -109,7 +110,7 @@ const themeSettings = {
 		<Router />
 	</head>
 	<body>
-		<a class="skip-link" href="#main">Skip to content</a>
+		<a class="skip-link" href="#main" data-astro-reload data-scroll-to-immediate>Skip to content</a>
 		<main id="main" class:list={['min-h-dvh w-full p-(--space-page)', props.mainClass]}>
 			<slot />
 		</main>

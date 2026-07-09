@@ -2,7 +2,7 @@ import type { TransitionBeforePreparationEvent, TransitionBeforeSwapEvent } from
 
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import type { RouteState } from "@/app/core/state";
-import { setDataset } from "@/app/utils/dom";
+import { composedPath, setDataset } from "@/app/utils/dom";
 
 export type RoutePreparation = {
 	id: number;
@@ -50,6 +50,8 @@ class Route extends BaseModule {
 	override preInit(context: Context): void {
 		super.preInit(context);
 		this.bindAstro();
+		document.addEventListener("click", this.handleSamePageAnchorCapture, true);
+		this.addCleanup(() => document.removeEventListener("click", this.handleSamePageAnchorCapture, true));
 		this.applyToDocument();
 	}
 
@@ -158,6 +160,25 @@ class Route extends BaseModule {
 		};
 		this.applyToDocument();
 		this.requestFrame("route:url");
+	};
+
+	private readonly handleSamePageAnchorCapture = (event: MouseEvent): void => {
+		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
+		const source = composedPath(event).find((candidate): candidate is Element => candidate instanceof Element);
+		const anchor = source?.closest<HTMLAnchorElement>("a[href]");
+		if (!anchor || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
+
+		let url: URL;
+		try {
+			url = new URL(anchor.href, window.location.href);
+		} catch {
+			return;
+		}
+		if (url.origin !== window.location.origin || url.pathname !== window.location.pathname || url.search !== window.location.search || !url.hash) return;
+		if (anchor.hasAttribute("data-astro-reload")) return;
+
+		anchor.setAttribute("data-astro-reload", "");
+		queueMicrotask(() => anchor.removeAttribute("data-astro-reload"));
 	};
 
 	private readonly handleBeforePreparation = (event: Event): void => {

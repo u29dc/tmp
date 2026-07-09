@@ -1,13 +1,11 @@
 import { createCfg, type Cfg, type Control, type Pane } from "cfg";
 
 import { clearSettingsDraft, scheduleSettingsDraftSave } from "@/app/core/draft";
-import { createSettingsPatch, resetSettings, SETTING_BOUNDS, settings, type ThemeColors } from "@/app/core/settings";
+import { createSettingsPatch, getNumberSettingBounds, resetSettings, settings, type SettingPath, type ThemeColors } from "@/app/core/settings";
 import { getPerformanceState } from "@/app/systems/performance";
 import { applyScrollSettings } from "@/app/systems/scroll";
 import { applyThemeSettings, onThemeChange } from "@/app/systems/theme";
 import { setDataset } from "@/app/utils/dom";
-
-import "cfg/styles.css";
 
 const COPY_SETTINGS_TITLE = "Copy settings";
 const COPY_SETTINGS_SUCCESS_TITLE = "Copied JSON";
@@ -31,13 +29,13 @@ export type DevPane = {
 	endFrame: () => void;
 	profile: <T>(label: string, callback: () => T) => T;
 	renderFrame: (time: number) => void;
+	syncSettings: () => void;
 	dispose: () => void;
 };
 
 export const createDevPane = (): DevPane => {
 	const container = createContainer();
 	document.body.append(container);
-	applyAllSettings();
 
 	const cfg = createCfg({
 		root: container,
@@ -63,13 +61,13 @@ export const createDevPane = (): DevPane => {
 		}, 0);
 	};
 
-	const handleChange = (path?: string): void => {
+	const handleChange = (path?: SettingPath): void => {
 		applyAllSettings();
 		cfg.setTheme(settings.theme.mode);
 		if (!suppressDraftSave && path) scheduleSettingsDraftSave(path);
 	};
 
-	const bind = <T>(control: Control<T>, path?: string): Control<T> => {
+	const bind = <T>(control: Control<T>, path?: SettingPath): Control<T> => {
 		boundControls.add(control);
 		control.on("change", () => handleChange(path));
 		return control;
@@ -95,6 +93,11 @@ export const createDevPane = (): DevPane => {
 		endFrame: () => cfg.endFrame(),
 		profile: (label, callback) => profiler.measure(label, callback),
 		renderFrame: (time) => cfg.renderFrame(time),
+		syncSettings: () => {
+			applyAllSettings();
+			cfg.setTheme(settings.theme.mode);
+			refreshBoundControls();
+		},
 		dispose: () => {
 			if (disposed) return;
 			disposed = true;
@@ -124,7 +127,7 @@ const addThemeControls = (pane: Pane, bind: Binder): void => {
 	addColorControls(folder.folder("Dark", { collapsed: true }), settings.theme.dark, "theme.dark", bind);
 };
 
-const addColorControls = (folder: Pane, colors: ThemeColors, path: string, bind: Binder): void => {
+const addColorControls = (folder: Pane, colors: ThemeColors, path: "theme.light" | "theme.dark", bind: Binder): void => {
 	bind(folder.color(colors, "ground", { label: "Ground" }), `${path}.ground`);
 	bind(folder.color(colors, "panel", { label: "Panel" }), `${path}.panel`);
 	bind(folder.color(colors, "surface", { label: "Surface" }), `${path}.surface`);
@@ -142,14 +145,14 @@ const addScrollControls = (pane: Pane, bind: Binder): void => {
 	bind(
 		folder.numberSlider(settings.scroll, "lambda", {
 			label: "Lambda",
-			...SETTING_BOUNDS.scroll.lambda,
+			...getNumberSettingBounds("scroll.lambda"),
 		}),
 		"scroll.lambda",
 	);
 	bind(
 		folder.numberSlider(settings.scroll, "wheelMultiplier", {
 			label: "Wheel",
-			...SETTING_BOUNDS.scroll.wheelMultiplier,
+			...getNumberSettingBounds("scroll.wheelMultiplier"),
 		}),
 		"scroll.wheelMultiplier",
 	);
@@ -160,21 +163,21 @@ const addRouterControls = (pane: Pane, bind: Binder): void => {
 	bind(
 		folder.numberSlider(settings.motion, "routeExitMs", {
 			label: "Route exit",
-			...SETTING_BOUNDS.motion.routeExitMs,
+			...getNumberSettingBounds("motion.routeExitMs"),
 		}),
 		"motion.routeExitMs",
 	);
 	bind(
 		folder.numberSlider(settings.motion, "routeEnterMs", {
 			label: "Route enter",
-			...SETTING_BOUNDS.motion.routeEnterMs,
+			...getNumberSettingBounds("motion.routeEnterMs"),
 		}),
 		"motion.routeEnterMs",
 	);
 	bind(
 		folder.numberSlider(settings.motion, "routeBufferMs", {
 			label: "Route buffer",
-			...SETTING_BOUNDS.motion.routeBufferMs,
+			...getNumberSettingBounds("motion.routeBufferMs"),
 		}),
 		"motion.routeBufferMs",
 	);
@@ -278,4 +281,4 @@ const createContainer = (): HTMLElement => {
 	return container;
 };
 
-type Binder = <T>(control: Control<T>, path?: string) => Control<T>;
+type Binder = <T>(control: Control<T>, path?: SettingPath) => Control<T>;

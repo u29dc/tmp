@@ -86,7 +86,9 @@ class Theme extends BaseModule {
 
 const hasAppliedTheme = (root: HTMLElement, scheme: ThemeScheme, colors: ThemeColors): boolean => {
 	const colorSchemeMeta = document.querySelector<HTMLMetaElement>("meta[name='color-scheme']");
-	const themeColorMeta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-runtime-theme-color]");
+	const lightThemeColorMeta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-theme-color='light']");
+	const darkThemeColorMeta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-theme-color='dark']");
+	const themeMetaColors = readThemeMetaColors(scheme, colors);
 	return (
 		root.dataset["theme"] === scheme &&
 		root.dataset["themeMode"] === settings.theme.mode &&
@@ -94,7 +96,8 @@ const hasAppliedTheme = (root: HTMLElement, scheme: ThemeScheme, colors: ThemeCo
 		root.style.getPropertyValue("--site-ground") === colors.ground &&
 		root.style.getPropertyValue("--site-ink") === colors.ink &&
 		colorSchemeMeta?.content === scheme &&
-		themeColorMeta?.content === colors.ground
+		lightThemeColorMeta?.content === themeMetaColors.light &&
+		darkThemeColorMeta?.content === themeMetaColors.dark
 	);
 };
 
@@ -118,14 +121,22 @@ const writeThemeMeta = (scheme: ThemeScheme, colors: ThemeColors): void => {
 		colorSchemeMeta.content = scheme;
 	}
 
-	let themeColorMeta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-runtime-theme-color]");
-	if (!themeColorMeta) {
-		themeColorMeta = document.createElement("meta");
-		themeColorMeta.name = "theme-color";
-		setDataset(themeColorMeta, "runtimeThemeColor", "true");
-		document.head.append(themeColorMeta);
+	const lightThemeColorMeta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-theme-color='light']");
+	const darkThemeColorMeta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-theme-color='dark']");
+	const themeMetaColors = readThemeMetaColors(scheme, colors);
+	if (lightThemeColorMeta && lightThemeColorMeta.content !== themeMetaColors.light) lightThemeColorMeta.content = themeMetaColors.light;
+	if (darkThemeColorMeta && darkThemeColorMeta.content !== themeMetaColors.dark) darkThemeColorMeta.content = themeMetaColors.dark;
+};
+
+const readThemeMetaColors = (scheme: ThemeScheme, colors: ThemeColors): { light: string; dark: string } => {
+	if (settings.theme.mode === "system") {
+		return {
+			light: settings.theme.light.ground,
+			dark: settings.theme.dark.ground,
+		};
 	}
-	if (themeColorMeta.content !== colors.ground) themeColorMeta.content = colors.ground;
+	const selected = scheme === "dark" ? settings.theme.dark.ground : colors.ground;
+	return { light: selected, dark: selected };
 };
 
 export const theme = new Theme();

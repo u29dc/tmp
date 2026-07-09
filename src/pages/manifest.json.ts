@@ -1,4 +1,7 @@
+import { createDefaultSettings } from "@/app/core/settings";
 import { SITE } from "@/data/site";
+
+const defaultTheme = createDefaultSettings().theme;
 
 const manifest = {
 	name: SITE.name,
@@ -6,8 +9,8 @@ const manifest = {
 	description: SITE.description,
 	start_url: "/",
 	display: "standalone",
-	background_color: SITE.backgroundColor,
-	theme_color: SITE.themeColorLight,
+	background_color: defaultTheme.light.ground,
+	theme_color: defaultTheme.light.ground,
 	icons: SITE.icons,
 	orientation: "portrait",
 	categories: SITE.keywords,

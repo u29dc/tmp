@@ -3,7 +3,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 ---
 
 <BaseLayout mainClass="grid place-items-center">
-	<h1 id="template-title" class="text-sm font-semibold leading-none tracking-normal text-ink">
-		TEMPLATE
-	</h1>
+	<nav aria-label="Primary" class="flex min-h-11 items-center gap-(--space-3) text-sm leading-none tracking-normal text-ink">
+		<h1 id="page-title" class="inline-flex min-h-11 w-14 items-center justify-center text-muted">HOME</h1>
+		<span aria-hidden="true" class="text-muted">|</span>
+		<a href="/about/" data-ui="link" class="inline-flex min-h-11 w-14 items-center justify-center">ABOUT</a>
+	</nav>
 </BaseLayout>

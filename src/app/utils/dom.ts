@@ -54,16 +54,8 @@ export const isClassToken = (value: string): boolean => {
 export const readClassToken = (value: string | undefined, fallback: string): string => (value && isClassToken(value) ? value.trim() : fallback);
 
 export const focusElement = (element: HTMLElement): void => {
-	const hadTabIndex = element.hasAttribute("tabindex");
-	const previousTabIndex = element.getAttribute("tabindex");
-	if (!isFocusable(element)) element.setAttribute("tabindex", "-1");
+	if (!isFocusable(element) && !element.hasAttribute("tabindex")) element.setAttribute("tabindex", "-1");
 	element.focus({ preventScroll: true });
-	if (hadTabIndex) {
-		if (previousTabIndex === null) element.removeAttribute("tabindex");
-		else element.setAttribute("tabindex", previousTabIndex);
-	} else {
-		element.removeAttribute("tabindex");
-	}
 };
 
 const isFocusable = (element: HTMLElement): boolean => {

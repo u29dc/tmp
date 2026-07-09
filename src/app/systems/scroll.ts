@@ -34,7 +34,7 @@ type ScrollToOptions = {
 };
 
 const SCROLL_SELECTOR = "[data-scroll]";
-const SCROLL_TO_SELECTOR = "a[href^='#'], [data-scroll-to], [data-scroll-to-href]";
+const SCROLL_TO_SELECTOR = "a[href*='#'], [data-scroll-to], [data-scroll-to-href]";
 const NATIVE_SCROLL_SELECTOR = "[data-native-scroll], [data-scroll-native], textarea, select, iframe, [contenteditable='true']";
 const INVIEW_CLASS = "is-inview";
 const INTERACTIVE_ROOT_MARGIN = "100% 0px 100% 0px";

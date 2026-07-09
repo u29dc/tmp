@@ -1,5 +1,5 @@
 import { App } from "@/app/core/app";
-import { loadSettingsDraft } from "@/app/core/draft";
+import { flushSettingsDraftSave, loadSettingsDraft } from "@/app/core/draft";
 import { createBooleanFlag } from "@/app/core/flags";
 import { storageKey } from "@/app/core/namespace";
 import { applyQuerySettings, resetSettings, settings } from "@/app/core/settings";
@@ -20,9 +20,14 @@ const controlsFlag = createBooleanFlag({
 	defaultValue: true,
 });
 
-resetSettings();
-if (controlsFlag.sync().enabled) loadSettingsDraft();
-applyQuerySettings();
+const reconcileSettings = (search = window.location.search, flushDraft = false): void => {
+	if (flushDraft) flushSettingsDraftSave();
+	resetSettings();
+	if (controlsFlag.sync(search).enabled) loadSettingsDraft();
+	applyQuerySettings(search);
+};
+
+reconcileSettings();
 
 const modules = [device, theme, route, input, scroll, motion, performanceMonitor, ui] as const;
 const devTools = createDevTools(controlsFlag);
@@ -49,6 +54,7 @@ const app = new App(modules, {
 app.start();
 devTools.sync();
 onRouteAfterSwap(() => {
+	reconcileSettings(window.location.search, true);
 	app.refreshPage("route:after-swap");
 	queueMicrotask(() => devTools.sync());
 });

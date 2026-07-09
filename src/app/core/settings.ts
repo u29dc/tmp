@@ -1,58 +1,4 @@
-export type ThemeMode = "system" | "light" | "dark";
-
-export type ThemeColors = {
-	ground: string;
-	panel: string;
-	surface: string;
-	ink: string;
-	muted: string;
-	edge: string;
-	edgeSoft: string;
-	accent: string;
-	focus: string;
-};
-
-export type AppSettings = {
-	runtime: {
-		continuous: boolean;
-	};
-	theme: {
-		mode: ThemeMode;
-		light: ThemeColors;
-		dark: ThemeColors;
-	};
-	interaction: {
-		ratioLambda: number;
-		pressLambda: number;
-		settleEpsilon: number;
-		pressScale: number;
-	};
-	scroll: {
-		smoothEnabled: boolean;
-		lambda: number;
-		settlePx: number;
-		wheelMultiplier: number;
-		pageMultiplier: number;
-	};
-	motion: {
-		routeExitMs: number;
-		routeEnterMs: number;
-		routeBufferMs: number;
-	};
-	device: {
-		smallWidth: number;
-		largeWidth: number;
-		maxDprHigh: number;
-		maxDprMedium: number;
-	};
-};
-
 export type SettingsValue = boolean | number | string;
-export type SettingsPatch = Record<string, SettingsValue>;
-
-type SettingReadOptions = {
-	validateCrossFields?: boolean;
-};
 
 export type NumberSettingBounds = {
 	min: number;
@@ -60,138 +6,169 @@ export type NumberSettingBounds = {
 	step?: number;
 };
 
-export const SETTING_BOUNDS = {
-	interaction: {
-		ratioLambda: { min: 1, max: 40, step: 0.1 },
-		pressLambda: { min: 1, max: 60, step: 0.1 },
-		pressScale: { min: 0.9, max: 1, step: 0.001 },
-		settleEpsilon: { min: 0.0001, max: 0.02, step: 0.0001 },
-	},
-	scroll: {
-		lambda: { min: 1, max: 40, step: 0.1 },
-		settlePx: { min: 0.01, max: 4, step: 0.01 },
-		wheelMultiplier: { min: 0.25, max: 2.5, step: 0.01 },
-		pageMultiplier: { min: 0.25, max: 1.5, step: 0.01 },
-	},
-	motion: {
-		routeExitMs: { min: 0, max: 1200, step: 10 },
-		routeEnterMs: { min: 0, max: 1200, step: 10 },
-		routeBufferMs: { min: 0, max: 300, step: 10 },
-	},
-	device: {
-		smallWidth: { min: 320, max: 2560, step: 1 },
-		largeWidth: { min: 640, max: 3840, step: 1 },
-		maxDprHigh: { min: 1, max: 4, step: 0.1 },
-		maxDprMedium: { min: 1, max: 3, step: 0.1 },
-	},
-} as const satisfies {
-	interaction: Record<keyof AppSettings["interaction"], NumberSettingBounds>;
-	scroll: Record<Exclude<keyof AppSettings["scroll"], "smoothEnabled">, NumberSettingBounds>;
-	motion: Record<keyof AppSettings["motion"], NumberSettingBounds>;
-	device: Record<keyof AppSettings["device"], NumberSettingBounds>;
+type BooleanSettingDescriptor = {
+	kind: "boolean";
+	default: boolean;
 };
 
-const NUMBER_SETTING_BOUNDS: Record<string, NumberSettingBounds> = {
-	"interaction.ratioLambda": SETTING_BOUNDS.interaction.ratioLambda,
-	"interaction.pressLambda": SETTING_BOUNDS.interaction.pressLambda,
-	"interaction.pressScale": SETTING_BOUNDS.interaction.pressScale,
-	"interaction.settleEpsilon": SETTING_BOUNDS.interaction.settleEpsilon,
-	"scroll.lambda": SETTING_BOUNDS.scroll.lambda,
-	"scroll.settlePx": SETTING_BOUNDS.scroll.settlePx,
-	"scroll.wheelMultiplier": SETTING_BOUNDS.scroll.wheelMultiplier,
-	"scroll.pageMultiplier": SETTING_BOUNDS.scroll.pageMultiplier,
-	"motion.routeExitMs": SETTING_BOUNDS.motion.routeExitMs,
-	"motion.routeEnterMs": SETTING_BOUNDS.motion.routeEnterMs,
-	"motion.routeBufferMs": SETTING_BOUNDS.motion.routeBufferMs,
-	"device.smallWidth": SETTING_BOUNDS.device.smallWidth,
-	"device.largeWidth": SETTING_BOUNDS.device.largeWidth,
-	"device.maxDprHigh": SETTING_BOUNDS.device.maxDprHigh,
-	"device.maxDprMedium": SETTING_BOUNDS.device.maxDprMedium,
+type NumberSettingDescriptor = NumberSettingBounds & {
+	kind: "number";
+	default: number;
 };
 
-const THEME_COLOR_KEYS = new Set([
-	"theme.light.ground",
-	"theme.light.panel",
-	"theme.light.surface",
-	"theme.light.ink",
-	"theme.light.muted",
-	"theme.light.edge",
-	"theme.light.edgeSoft",
-	"theme.light.accent",
-	"theme.light.focus",
-	"theme.dark.ground",
-	"theme.dark.panel",
-	"theme.dark.surface",
-	"theme.dark.ink",
-	"theme.dark.muted",
-	"theme.dark.edge",
-	"theme.dark.edgeSoft",
-	"theme.dark.accent",
-	"theme.dark.focus",
-]);
+type EnumSettingDescriptor = {
+	kind: "enum";
+	default: string;
+	values: readonly string[];
+};
 
-const NUMBER_PATTERN = /^[+-]?(?:\d+|\d*\.\d+)(?:e[+-]?\d+)?$/i;
+type ColorSettingDescriptor = {
+	kind: "color";
+	default: string;
+};
 
-export const createDefaultSettings = (): AppSettings => ({
+type SettingDescriptor = BooleanSettingDescriptor | NumberSettingDescriptor | EnumSettingDescriptor | ColorSettingDescriptor;
+type SettingTree = { readonly [key: string]: SettingTree | SettingDescriptor };
+
+const booleanSetting = (defaultValue: boolean): BooleanSettingDescriptor => ({
+	kind: "boolean",
+	default: defaultValue,
+});
+
+const numberSetting = (defaultValue: number, bounds: NumberSettingBounds): NumberSettingDescriptor => ({
+	kind: "number",
+	default: defaultValue,
+	...bounds,
+});
+
+const enumSetting = <const Values extends readonly string[]>(values: Values, defaultValue: Values[number]): EnumSettingDescriptor & { default: Values[number]; values: Values } => ({
+	kind: "enum",
+	default: defaultValue,
+	values,
+});
+
+const colorSetting = (defaultValue: string): ColorSettingDescriptor => ({
+	kind: "color",
+	default: defaultValue,
+});
+
+export const SETTING_SCHEMA = {
 	runtime: {
-		continuous: true,
+		continuous: booleanSetting(true),
 	},
 	theme: {
-		mode: "system",
+		mode: enumSetting(["system", "light", "dark"] as const, "system"),
 		light: {
-			ground: "#ffffff",
-			panel: "#ffffff",
-			surface: "#ffffff",
-			ink: "#111111",
-			muted: "#737373",
-			edge: "#d7d7d7",
-			edgeSoft: "#ededed",
-			accent: "#111111",
-			focus: "#111111",
+			ground: colorSetting("#ffffff"),
+			panel: colorSetting("#ffffff"),
+			surface: colorSetting("#ffffff"),
+			ink: colorSetting("#111111"),
+			muted: colorSetting("#737373"),
+			edge: colorSetting("#d7d7d7"),
+			edgeSoft: colorSetting("#ededed"),
+			accent: colorSetting("#111111"),
+			focus: colorSetting("#111111"),
 		},
 		dark: {
-			ground: "#111111",
-			panel: "#151515",
-			surface: "#1a1a1a",
-			ink: "#f5f5f5",
-			muted: "#a3a3a3",
-			edge: "#333333",
-			edgeSoft: "#242424",
-			accent: "#f5f5f5",
-			focus: "#f5f5f5",
+			ground: colorSetting("#111111"),
+			panel: colorSetting("#151515"),
+			surface: colorSetting("#1a1a1a"),
+			ink: colorSetting("#f5f5f5"),
+			muted: colorSetting("#a3a3a3"),
+			edge: colorSetting("#333333"),
+			edgeSoft: colorSetting("#242424"),
+			accent: colorSetting("#f5f5f5"),
+			focus: colorSetting("#f5f5f5"),
 		},
 	},
 	interaction: {
-		ratioLambda: 12,
-		pressLambda: 24,
-		settleEpsilon: 0.001,
-		pressScale: 0.97,
+		ratioLambda: numberSetting(12, { min: 1, max: 40, step: 0.1 }),
+		pressLambda: numberSetting(24, { min: 1, max: 60, step: 0.1 }),
+		settleEpsilon: numberSetting(0.001, { min: 0.0001, max: 0.02, step: 0.0001 }),
+		pressScale: numberSetting(0.97, { min: 0.9, max: 1, step: 0.001 }),
 	},
 	scroll: {
-		smoothEnabled: true,
-		lambda: 10,
-		settlePx: 0.5,
-		wheelMultiplier: 1,
-		pageMultiplier: 0.9,
+		smoothEnabled: booleanSetting(true),
+		lambda: numberSetting(10, { min: 1, max: 40, step: 0.1 }),
+		settlePx: numberSetting(0.5, { min: 0.01, max: 4, step: 0.01 }),
+		wheelMultiplier: numberSetting(1, { min: 0.25, max: 2.5, step: 0.01 }),
+		pageMultiplier: numberSetting(0.9, { min: 0.25, max: 1.5, step: 0.01 }),
 	},
 	motion: {
-		routeExitMs: 220,
-		routeEnterMs: 260,
-		routeBufferMs: 40,
+		routeExitMs: numberSetting(100, { min: 0, max: 1200, step: 10 }),
+		routeEnterMs: numberSetting(260, { min: 0, max: 1200, step: 10 }),
+		routeBufferMs: numberSetting(40, { min: 0, max: 300, step: 10 }),
 	},
 	device: {
-		smallWidth: 640,
-		largeWidth: 1440,
-		maxDprHigh: 2,
-		maxDprMedium: 1.5,
+		smallWidth: numberSetting(640, { min: 320, max: 2560, step: 1 }),
+		largeWidth: numberSetting(1440, { min: 640, max: 3840, step: 1 }),
+		maxDprHigh: numberSetting(2, { min: 1, max: 4, step: 0.1 }),
+		maxDprMedium: numberSetting(1.5, { min: 1, max: 3, step: 0.1 }),
 	},
-});
+} as const satisfies SettingTree;
+
+type SettingValueFromDescriptor<Descriptor> = Descriptor extends BooleanSettingDescriptor
+	? boolean
+	: Descriptor extends NumberSettingDescriptor
+		? number
+		: Descriptor extends EnumSettingDescriptor
+			? Descriptor["values"][number]
+			: Descriptor extends ColorSettingDescriptor
+				? string
+				: Descriptor extends object
+					? { -readonly [Key in keyof Descriptor]: SettingValueFromDescriptor<Descriptor[Key]> }
+					: never;
+
+type SettingPathFromTree<Tree> = {
+	[Key in keyof Tree & string]: Tree[Key] extends SettingDescriptor ? Key : Tree[Key] extends object ? `${Key}.${SettingPathFromTree<Tree[Key]>}` : never;
+}[keyof Tree & string];
+
+type NumberSettingPathFromTree<Tree> = {
+	[Key in keyof Tree & string]: Tree[Key] extends NumberSettingDescriptor ? Key : Tree[Key] extends object ? `${Key}.${NumberSettingPathFromTree<Tree[Key]>}` : never;
+}[keyof Tree & string];
+
+export type AppSettings = SettingValueFromDescriptor<typeof SETTING_SCHEMA>;
+export type ThemeMode = AppSettings["theme"]["mode"];
+export type ThemeColors = AppSettings["theme"]["light"];
+export type SettingPath = SettingPathFromTree<typeof SETTING_SCHEMA>;
+export type NumberSettingPath = NumberSettingPathFromTree<typeof SETTING_SCHEMA>;
+export type SettingsPatch = Partial<Record<SettingPath, SettingsValue>>;
+
+export const THEME_BOOT_PATHS = {
+	mode: "theme.mode",
+	light: {
+		ground: "theme.light.ground",
+		ink: "theme.light.ink",
+	},
+	dark: {
+		ground: "theme.dark.ground",
+		ink: "theme.dark.ink",
+	},
+} as const satisfies {
+	mode: SettingPath;
+	light: { ground: SettingPath; ink: SettingPath };
+	dark: { ground: SettingPath; ink: SettingPath };
+};
+
+const NUMBER_PATTERN = /^[+-]?(?:\d+|\d*\.\d+)(?:e[+-]?\d+)?$/i;
+const SETTING_DESCRIPTORS = flattenSettingSchema(SETTING_SCHEMA);
+const SETTING_PATHS = Object.keys(SETTING_DESCRIPTORS) as SettingPath[];
+
+export const createDefaultSettings = (): AppSettings => materializeSettings(SETTING_SCHEMA) as AppSettings;
 
 export const settings: AppSettings = createDefaultSettings();
 
 export const resetSettings = (): void => {
 	mergeRecords(settings, createDefaultSettings());
 };
+
+export const getNumberSettingBounds = (path: NumberSettingPath): NumberSettingBounds => {
+	const descriptor = SETTING_DESCRIPTORS[path];
+	if (descriptor.kind !== "number") throw new TypeError(`Expected a number setting at ${path}.`);
+	return descriptor.step === undefined ? { min: descriptor.min, max: descriptor.max } : { min: descriptor.min, max: descriptor.max, step: descriptor.step };
+};
+
+export const isSettingPath = (path: string): path is SettingPath => Object.prototype.hasOwnProperty.call(SETTING_DESCRIPTORS, path);
 
 export const applyQuerySettings = (search?: string): void => {
 	const query = search ?? (typeof window === "undefined" ? "" : window.location.search);
@@ -200,41 +177,50 @@ export const applyQuerySettings = (search?: string): void => {
 	applySettingsEntries(Array.from(entries.entries(), ([key, value]): readonly [string, SettingsValue] => [key, value === "" ? true : value]));
 };
 
-export const createSettingsPatch = (paths?: Iterable<string>): SettingsPatch => {
+export const createSettingsPatch = (paths?: Iterable<SettingPath>): SettingsPatch => {
 	const patch: SettingsPatch = {};
 	const defaults = createDefaultSettings();
-	if (paths === undefined) {
-		collectSettingsPatch("", settings, defaults, patch);
-		return patch;
+	for (const path of paths === undefined ? SETTING_PATHS : new Set(paths)) {
+		const currentValue = readSettingsPathValue(settings, path);
+		const defaultValue = readSettingsPathValue(defaults, path);
+		if (currentValue !== undefined && defaultValue !== undefined && currentValue !== defaultValue) patch[path] = currentValue;
 	}
-	for (const path of new Set(paths)) {
-		collectSettingsPathPatch(path, settings, defaults, patch);
+	return patch;
+};
+
+export const parseSettingsPatch = (value: unknown): SettingsPatch | undefined => {
+	if (!isRecord(value)) return undefined;
+	const patch: SettingsPatch = {};
+	for (const [path, patchValue] of Object.entries(value)) {
+		if (!isSettingPath(path) || !isSettingsValue(patchValue)) return undefined;
+		patch[path] = patchValue;
 	}
 	return patch;
 };
 
 export const applySettingsPatch = (patch: unknown): void => {
-	if (!isRecord(patch)) return;
-	applySettingsEntries(Object.entries(patch));
+	const parsed = parseSettingsPatch(patch);
+	if (!parsed) return;
+	applySettingsEntries(Object.entries(parsed));
 };
 
 const applySettingsEntries = (entries: Iterable<readonly [string, unknown]>): void => {
 	const candidate = cloneSettings(settings);
 	let changed = false;
 	for (const [path, value] of entries) {
-		if (!isSettingsValue(value)) continue;
-		changed =
-			setSettingByPath(candidate, path, value, {
-				validateCrossFields: false,
-			}) || changed;
+		if (!isSettingPath(path) || !isSettingsValue(value)) continue;
+		changed = setSettingByPath(candidate, path, value) || changed;
 	}
 	if (!changed || !isSettingsCandidateValid(candidate)) return;
 	mergeRecords(settings, candidate);
 };
 
-const setSettingByPath = (target: AppSettings, path: string, value: SettingsValue, options: SettingReadOptions = {}): boolean => {
+const setSettingByPath = (target: AppSettings, path: SettingPath, value: SettingsValue): boolean => {
+	const descriptor = SETTING_DESCRIPTORS[path];
+	const next = readSettingValue(descriptor, value);
+	if (next === undefined) return false;
+
 	const parts = path.split(".");
-	if (parts.some((part) => part.length === 0)) return false;
 	let cursor: unknown = target;
 	for (const part of parts.slice(0, -1)) {
 		if (!isRecord(cursor) || !(part in cursor)) return false;
@@ -242,35 +228,19 @@ const setSettingByPath = (target: AppSettings, path: string, value: SettingsValu
 	}
 	const key = parts.at(-1);
 	if (!key || !isRecord(cursor) || !(key in cursor)) return false;
-	const previous = cursor[key];
-	let next: SettingsValue | undefined;
-	if (typeof previous === "boolean") next = readBoolean(value);
-	else if (typeof previous === "number") next = readNumber(path, value, target, options);
-	else if (typeof previous === "string") next = readString(path, value);
-	if (next === undefined) return false;
 	cursor[key] = next;
 	return true;
 };
 
-const cloneSettings = (source: AppSettings): AppSettings => {
-	const clone = createDefaultSettings();
-	mergeRecords(clone, source);
-	return clone;
+const readSettingValue = (descriptor: SettingDescriptor, value: SettingsValue): SettingsValue | undefined => {
+	if (descriptor.kind === "boolean") return readBoolean(value);
+	if (descriptor.kind === "number") return readNumber(descriptor, value);
+	if (typeof value !== "string") return undefined;
+	const candidate = value.trim();
+	if (!candidate) return undefined;
+	if (descriptor.kind === "enum") return descriptor.values.includes(candidate) ? candidate : undefined;
+	return isColorValue(candidate) ? candidate : undefined;
 };
-
-const mergeRecords = (target: unknown, source: unknown): void => {
-	if (!isRecord(target) || !isRecord(source)) return;
-	for (const key of Object.keys(source)) {
-		const next = source[key];
-		const current = target[key];
-		if (isRecord(current) && isRecord(next)) mergeRecords(current, next);
-		else target[key] = next;
-	}
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
-
-const isSettingsValue = (value: unknown): value is SettingsValue => typeof value === "boolean" || typeof value === "number" || typeof value === "string";
 
 const readBoolean = (value: SettingsValue): boolean | undefined => {
 	if (typeof value === "boolean") return value;
@@ -279,28 +249,14 @@ const readBoolean = (value: SettingsValue): boolean | undefined => {
 	return undefined;
 };
 
-const readNumber = (path: string, value: SettingsValue, target: AppSettings, options: SettingReadOptions): number | undefined => {
+const readNumber = (descriptor: NumberSettingDescriptor, value: SettingsValue): number | undefined => {
 	if (typeof value === "boolean") return undefined;
 	const raw = typeof value === "number" ? String(value) : value.trim();
 	if (!NUMBER_PATTERN.test(raw)) return undefined;
 	const parsed = Number(raw);
-	if (!Number.isFinite(parsed)) return undefined;
-	const bounds = NUMBER_SETTING_BOUNDS[path];
-	if (!bounds || parsed < bounds.min || parsed > bounds.max) return undefined;
-	if (options.validateCrossFields !== false && !isCrossFieldNumberValid(path, parsed, target)) return undefined;
+	if (!Number.isFinite(parsed) || parsed < descriptor.min || parsed > descriptor.max) return undefined;
 	return parsed;
 };
-
-const readString = (path: string, value: SettingsValue): string | undefined => {
-	if (typeof value !== "string") return undefined;
-	const candidate = value.trim();
-	if (!candidate) return undefined;
-	if (path === "theme.mode") return isThemeMode(candidate) ? candidate : undefined;
-	if (THEME_COLOR_KEYS.has(path)) return isColorValue(candidate) ? candidate : undefined;
-	return undefined;
-};
-
-const isThemeMode = (value: string): value is ThemeMode => value === "system" || value === "light" || value === "dark";
 
 const isColorValue = (value: string): boolean => {
 	if (!value) return false;
@@ -308,41 +264,58 @@ const isColorValue = (value: string): boolean => {
 	return CSS.supports("color", value);
 };
 
-const isCrossFieldNumberValid = (path: string, value: number, target: AppSettings): boolean => {
-	if (path === "device.smallWidth") return value < target.device.largeWidth;
-	if (path === "device.largeWidth") return value > target.device.smallWidth;
-	if (path === "device.maxDprHigh") return value >= target.device.maxDprMedium;
-	if (path === "device.maxDprMedium") return value <= target.device.maxDprHigh;
-	return true;
-};
-
 const isSettingsCandidateValid = (candidate: AppSettings): boolean => candidate.device.smallWidth < candidate.device.largeWidth && candidate.device.maxDprMedium <= candidate.device.maxDprHigh;
 
-const readSettingsPathValue = (source: AppSettings, path: string): SettingsValue | undefined => {
-	const parts = path.split(".");
-	if (parts.some((part) => part.length === 0)) return undefined;
+const cloneSettings = (source: AppSettings): AppSettings => {
+	const clone = createDefaultSettings();
+	mergeRecords(clone, source);
+	return clone;
+};
+
+const readSettingsPathValue = (source: AppSettings, path: SettingPath): SettingsValue | undefined => {
 	let cursor: unknown = source;
-	for (const part of parts) {
+	for (const part of path.split(".")) {
 		if (!isRecord(cursor) || !(part in cursor)) return undefined;
 		cursor = cursor[part];
 	}
 	return isSettingsValue(cursor) ? cursor : undefined;
 };
 
-const collectSettingsPathPatch = (path: string, current: AppSettings, defaultValue: AppSettings, patch: SettingsPatch): void => {
-	const currentValue = readSettingsPathValue(current, path);
-	const defaultPathValue = readSettingsPathValue(defaultValue, path);
-	if (currentValue === undefined || defaultPathValue === undefined || currentValue === defaultPathValue) return;
-	patch[path] = currentValue;
-};
-
-const collectSettingsPatch = (path: string, current: unknown, defaultValue: unknown, patch: SettingsPatch): void => {
-	if (isRecord(current) && isRecord(defaultValue)) {
-		for (const key of Object.keys(defaultValue)) {
-			collectSettingsPatch(path ? `${path}.${key}` : key, current[key], defaultValue[key], patch);
-		}
-		return;
+function flattenSettingSchema(tree: SettingTree, prefix = "", descriptors: Record<string, SettingDescriptor> = {}): Record<SettingPath, SettingDescriptor> {
+	for (const [key, value] of Object.entries(tree)) {
+		const path = prefix ? `${prefix}.${key}` : key;
+		if (isSettingDescriptor(value)) descriptors[path] = value;
+		else flattenSettingSchema(value, path, descriptors);
 	}
-	if (!path || !isSettingsValue(current) || !isSettingsValue(defaultValue)) return;
-	if (current !== defaultValue) patch[path] = current;
-};
+	return descriptors;
+}
+
+function materializeSettings(tree: SettingTree): unknown {
+	const result: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(tree)) {
+		result[key] = isSettingDescriptor(value) ? value.default : materializeSettings(value);
+	}
+	return result;
+}
+
+function mergeRecords(target: unknown, source: unknown): void {
+	if (!isRecord(target) || !isRecord(source)) return;
+	for (const key of Object.keys(source)) {
+		const next = source[key];
+		const current = target[key];
+		if (isRecord(current) && isRecord(next)) mergeRecords(current, next);
+		else target[key] = next;
+	}
+}
+
+function isSettingDescriptor(value: SettingTree | SettingDescriptor): value is SettingDescriptor {
+	return "kind" in value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isSettingsValue(value: unknown): value is SettingsValue {
+	return typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+}

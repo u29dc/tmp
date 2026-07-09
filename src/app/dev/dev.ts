@@ -27,8 +27,10 @@ export const createDevTools = (flag: BooleanFlag): DevTools => {
 	return {
 		sync(): void {
 			const state = flag.sync();
-			if (state.enabled) mount();
-			else dispose();
+			if (state.enabled) {
+				mount();
+				pane?.syncSettings();
+			} else dispose();
 		},
 		beginFrame(time): void {
 			pane?.beginFrame(time);

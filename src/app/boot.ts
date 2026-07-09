@@ -3,13 +3,13 @@ import { SETTINGS_DRAFT_SCHEMA } from "./core/storage";
 const TRUE_VALUES = new Set(["1", "true", "on"]);
 const FALSE_VALUES = new Set(["0", "false", "off"]);
 const THEME_COLOR_KEYS = ["ground", "ink"] as const;
-const THEME_COLOR_PATH_PATTERN = /^theme\.(light|dark)\.([a-zA-Z]+)$/;
 
 type ThemeMode = "system" | "light" | "dark";
 type ThemeScheme = "light" | "dark";
 type ThemeColorKey = (typeof THEME_COLOR_KEYS)[number];
 type ThemeColors = Record<ThemeColorKey, string>;
-type ThemeSettings = { mode: ThemeMode; light: ThemeColors; dark: ThemeColors };
+type ThemePaths = { mode: string; light: Record<ThemeColorKey, string>; dark: Record<ThemeColorKey, string> };
+type ThemeSettings = { mode: ThemeMode; light: ThemeColors; dark: ThemeColors; paths: ThemePaths };
 type ColorPath = { scheme: ThemeScheme; key: ThemeColorKey };
 type SettingsValue = boolean | number | string;
 type SettingsPatch = Record<string, SettingsValue>;
@@ -23,7 +23,7 @@ const themeSettings = readThemeSettings(root.dataset.themeSettings);
 if (themeSettings) {
 	const controlsEnabled = readControls(controlsKey, readBoolean(root.dataset.controlsDefault) ?? false);
 	if (controlsEnabled) mergeThemePatch(themeSettings, readStoredSettings(settingsKey));
-	mergeThemePatch(themeSettings, readQuerySettings());
+	mergeThemePatch(themeSettings, readQuerySettings(themeSettings.paths));
 	applyTheme(themeSettings);
 }
 
@@ -49,11 +49,13 @@ function readThemeSettings(raw: unknown): ThemeSettings | undefined {
 	if (!candidate) return undefined;
 	const light = readThemeColors(candidate["light"]);
 	const dark = readThemeColors(candidate["dark"]);
-	if (!light || !dark) return undefined;
+	const paths = readThemePaths(candidate["paths"]);
+	if (!light || !dark || !paths) return undefined;
 	return {
 		mode: readThemeMode(candidate["mode"]) ?? "system",
 		light,
 		dark,
+		paths,
 	};
 }
 
@@ -66,13 +68,13 @@ function readStoredSettings(key: string): SettingsPatch | undefined {
 	return patch;
 }
 
-function readQuerySettings(): SettingsPatch | undefined {
+function readQuerySettings(paths: ThemePaths): SettingsPatch | undefined {
 	if (typeof URLSearchParams === "undefined") return undefined;
 	const query = new URLSearchParams(window.location.search);
 	const patch: SettingsPatch = {};
 	let hasPatch = false;
 	for (const [key, value] of query.entries()) {
-		if (!isThemePath(key)) continue;
+		if (!isThemePath(key, paths)) continue;
 		patch[key] = value;
 		hasPatch = true;
 	}
@@ -82,12 +84,12 @@ function readQuerySettings(): SettingsPatch | undefined {
 function mergeThemePatch(target: ThemeSettings, patch: unknown): void {
 	if (!isRecord(patch)) return;
 	for (const [path, value] of Object.entries(patch)) {
-		if (path === "theme.mode") {
+		if (path === target.paths.mode) {
 			const mode = readThemeMode(value);
 			if (mode) target.mode = mode;
 			continue;
 		}
-		const colorPath = readColorPath(path);
+		const colorPath = readColorPath(path, target.paths);
 		if (!colorPath) continue;
 		const color = readColor(value);
 		if (color) target[colorPath.scheme][colorPath.key] = color;
@@ -107,7 +109,7 @@ function applyTheme(theme: ThemeSettings): void {
 	root.style.setProperty("background-color", "var(--site-ground)");
 	root.style.setProperty("color", "var(--site-ink)");
 	updateColorSchemeMeta(scheme);
-	updateThemeColorMeta(colors.ground);
+	updateThemeColorMeta(theme, colors.ground);
 }
 
 function readThemeColors(value: unknown): ThemeColors | undefined {
@@ -125,18 +127,23 @@ function readThemeColors(value: unknown): ThemeColors | undefined {
 	};
 }
 
+function readThemePaths(value: unknown): ThemePaths | undefined {
+	if (!isRecord(value)) return undefined;
+	const mode = readNonEmptyString(value["mode"]);
+	const light = readThemeColorPaths(value["light"]);
+	const dark = readThemeColorPaths(value["dark"]);
+	return mode && light && dark ? { mode, light, dark } : undefined;
+}
+
+function readThemeColorPaths(value: unknown): Record<ThemeColorKey, string> | undefined {
+	if (!isRecord(value)) return undefined;
+	const ground = readNonEmptyString(value["ground"]);
+	const ink = readNonEmptyString(value["ink"]);
+	return ground && ink ? { ground, ink } : undefined;
+}
+
 function readThemeMode(value: unknown): ThemeMode | undefined {
 	if (value === "system" || value === "light" || value === "dark") return value;
-	return undefined;
-}
-
-function readThemeScheme(value: unknown): ThemeScheme | undefined {
-	if (value === "light" || value === "dark") return value;
-	return undefined;
-}
-
-function readThemeColorKey(value: unknown): ThemeColorKey | undefined {
-	if (value === "ground" || value === "ink") return value;
 	return undefined;
 }
 
@@ -148,17 +155,17 @@ function readColor(value: unknown): string | undefined {
 	return color;
 }
 
-function readColorPath(path: string): ColorPath | undefined {
-	const match = THEME_COLOR_PATH_PATTERN.exec(path);
-	if (!match) return undefined;
-	const scheme = readThemeScheme(match[1]);
-	const key = readThemeColorKey(match[2]);
-	if (!scheme || !key) return undefined;
-	return { scheme, key };
+function readColorPath(path: string, paths: ThemePaths): ColorPath | undefined {
+	for (const scheme of ["light", "dark"] as const) {
+		for (const key of THEME_COLOR_KEYS) {
+			if (path === paths[scheme][key]) return { scheme, key };
+		}
+	}
+	return undefined;
 }
 
-function isThemePath(path: string): boolean {
-	return path === "theme.mode" || readColorPath(path) !== undefined;
+function isThemePath(path: string, paths: ThemePaths): boolean {
+	return path === paths.mode || readColorPath(path, paths) !== undefined;
 }
 
 function readSystemScheme(): ThemeScheme {
@@ -170,15 +177,18 @@ function updateColorSchemeMeta(scheme: ThemeScheme): void {
 	if (meta) meta.content = scheme;
 }
 
-function updateThemeColorMeta(color: string): void {
-	let meta = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-runtime-theme-color]");
-	if (!meta) {
-		meta = document.createElement("meta");
-		meta.name = "theme-color";
-		meta.dataset.runtimeThemeColor = "true";
-		document.head.append(meta);
-	}
-	meta.content = color;
+function updateThemeColorMeta(theme: ThemeSettings, selectedColor: string): void {
+	const forcedColor = theme.mode === "system" ? undefined : selectedColor;
+	const light = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-theme-color='light']");
+	const dark = document.querySelector<HTMLMetaElement>("meta[name='theme-color'][data-theme-color='dark']");
+	if (light) light.content = forcedColor ?? theme.light.ground;
+	if (dark) dark.content = forcedColor ?? theme.dark.ground;
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const candidate = value.trim();
+	return candidate || undefined;
 }
 
 function readQueryValue(name: string): string | undefined {

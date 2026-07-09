@@ -14,9 +14,6 @@ export type SiteConfig = {
 	locale: string;
 	creator: string;
 	keywords: string[];
-	themeColorLight: string;
-	themeColorDark: string;
-	backgroundColor: string;
 	faviconIcoPath: SitePath;
 	appleTouchIconPath: SitePath;
 	ogImage: SiteImage;
@@ -47,9 +44,6 @@ export const SITE: SiteConfig = {
 	locale: "en_GB",
 	creator: "",
 	keywords: ["website template"],
-	themeColorLight: "#ffffff",
-	themeColorDark: "#111111",
-	backgroundColor: "#ffffff",
 	faviconIcoPath: "/favicon.ico",
 	appleTouchIconPath: "/apple-touch-icon.png",
 	ogImage: {
