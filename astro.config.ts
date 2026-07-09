@@ -17,6 +17,11 @@ export default defineConfig({
 	}),
 	integrations: [mdx()],
 	output: "static",
+	session: {
+		driver: {
+			entrypoint: "unstorage/drivers/null",
+		},
+	},
 	compressHTML: true,
 	prerenderConflictBehavior: "error",
 	security: {
