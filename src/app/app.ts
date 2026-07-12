@@ -37,16 +37,34 @@ const app = new App(modules, {
 	getProfile: getDeviceProfile,
 	getRoute: getRouteState,
 	getScroll: getScrollState,
-	beforeFrame: (frame) => {
-		devTools.beginFrame(frame.now);
-		devTools.profile("performance.begin", () => performanceMonitor.beginFrame(frame));
-	},
-	afterFrame: (frame) => {
-		input.postUpdate(frame);
-		devTools.profile("performance.end", () => performanceMonitor.endFrame(frame));
-		devTools.endFrame();
-		devTools.renderFrame(frame.now);
-	},
+	beforeFrame: [
+		{
+			name: "devtools.begin",
+			run: (frame) => devTools.beginFrame(frame.now),
+		},
+		{
+			name: "performance.begin",
+			run: (frame) => devTools.profile("performance.begin", () => performanceMonitor.beginFrame(frame)),
+		},
+	],
+	afterFrame: [
+		{
+			name: "input.post-update",
+			run: (frame) => input.postUpdate(frame),
+		},
+		{
+			name: "performance.end",
+			run: (frame) => devTools.profile("performance.end", () => performanceMonitor.endFrame(frame)),
+		},
+		{
+			name: "devtools.end",
+			run: () => devTools.endFrame(),
+		},
+		{
+			name: "devtools.render",
+			run: (frame) => devTools.renderFrame(frame.now),
+		},
+	],
 	profile: (label, callback) => devTools.profile(label, callback),
 	shouldRunContinuously: () => settings.runtime.continuous,
 });

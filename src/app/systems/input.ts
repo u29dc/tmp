@@ -83,6 +83,7 @@ class Input extends BaseModule {
 	private state = createInputState();
 	private previousX = 0;
 	private previousY = 0;
+	private pointerBaselineValid = false;
 	private generation = 0;
 	private activeKeys = new Map<string, string>();
 	private readonly wheelHandlers = new Set<InputIntentHandler<InputWheelIntent>>();
@@ -96,7 +97,7 @@ class Input extends BaseModule {
 		document.addEventListener("pointermove", this.handlePointerMove, { passive: true });
 		document.addEventListener("pointerdown", this.handlePointerDown, { passive: true });
 		document.addEventListener("pointerup", this.handlePointerUp, { passive: true });
-		document.addEventListener("pointercancel", this.handlePointerUp, { passive: true });
+		document.addEventListener("pointercancel", this.handlePointerCancel, { passive: true });
 		document.addEventListener("pointerout", this.handlePointerOut, { passive: true });
 		this.bindWheelListener(this.wheelCancelRequests.size > 0);
 		document.addEventListener("click", this.handleClick);
@@ -108,7 +109,7 @@ class Input extends BaseModule {
 		this.addCleanup(() => document.removeEventListener("pointermove", this.handlePointerMove));
 		this.addCleanup(() => document.removeEventListener("pointerdown", this.handlePointerDown));
 		this.addCleanup(() => document.removeEventListener("pointerup", this.handlePointerUp));
-		this.addCleanup(() => document.removeEventListener("pointercancel", this.handlePointerUp));
+		this.addCleanup(() => document.removeEventListener("pointercancel", this.handlePointerCancel));
 		this.addCleanup(() => document.removeEventListener("pointerout", this.handlePointerOut));
 		this.addCleanup(() => this.unbindWheelListener());
 		this.addCleanup(() => document.removeEventListener("click", this.handleClick));
@@ -157,6 +158,7 @@ class Input extends BaseModule {
 	}
 
 	override dispose(): void {
+		this.pointerBaselineValid = false;
 		this.wheelHandlers.clear();
 		this.wheelCancelRequests.clear();
 		this.clickHandlers.clear();
@@ -233,10 +235,11 @@ class Input extends BaseModule {
 	private updatePointer(event: PointerEvent, options?: { pressed?: boolean; released?: boolean }): void {
 		const x = event.clientX;
 		const y = event.clientY;
-		const dx = x - this.previousX;
-		const dy = y - this.previousY;
+		const dx = this.pointerBaselineValid ? x - this.previousX : 0;
+		const dy = this.pointerBaselineValid ? y - this.previousY : 0;
 		this.previousX = x;
 		this.previousY = y;
+		this.pointerBaselineValid = true;
 		const width = window.innerWidth || 1;
 		const height = window.innerHeight || 1;
 		this.state = {
@@ -261,6 +264,7 @@ class Input extends BaseModule {
 	}
 
 	private clearTransientInput(): void {
+		this.pointerBaselineValid = false;
 		const pointer = this.state.pointer;
 		const keyboard = this.state.keyboard;
 		const wheel = this.state.wheel;
@@ -315,6 +319,12 @@ class Input extends BaseModule {
 
 	private readonly handlePointerUp = (event: PointerEvent): void => {
 		this.updatePointer(event, { released: true });
+		this.requestFrame("input:pointer");
+	};
+
+	private readonly handlePointerCancel = (event: PointerEvent): void => {
+		this.updatePointer(event, { released: true });
+		this.pointerBaselineValid = false;
 		this.requestFrame("input:pointer");
 	};
 

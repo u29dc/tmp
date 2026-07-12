@@ -11,6 +11,7 @@ const COPY_SETTINGS_TITLE = "Copy settings";
 const COPY_SETTINGS_SUCCESS_TITLE = "Copied JSON";
 const COPY_SETTINGS_ERROR_TITLE = "Copy failed";
 const COPY_TITLE_RESET_MS = 1600;
+const COMPACT_CONTROLS_QUERY = "(max-width: 760px), (max-height: 700px)";
 const FRAME_BUDGET_MS = 16.67;
 const FRAME_GRAPH_MAX_MS = 40;
 const FPS_GRAPH_MAX = 144;
@@ -36,15 +37,27 @@ export type DevPane = {
 export const createDevPane = (): DevPane => {
 	const container = createContainer();
 	document.body.append(container);
+	const compactQuery = window.matchMedia(COMPACT_CONTROLS_QUERY);
+	let wasCompact = compactQuery.matches;
+	setDataset(container, "controlsCompact", String(wasCompact));
 
 	const cfg = createCfg({
 		root: container,
 		scheduler: "external",
 		theme: settings.theme.mode,
 	});
-	const settingsPane = cfg.pane({ id: "settings", title: "Settings" });
-	const stats = cfg.pane({ id: "stats", title: "Stats" });
+	const settingsPane = cfg.pane({ id: "settings", title: "Settings", collapsed: wasCompact });
+	const stats = cfg.pane({ id: "stats", title: "Stats", collapsed: wasCompact });
 	const profiler = addTelemetryControls(stats);
+	const syncCompactPanes = (matches: boolean): void => {
+		setDataset(container, "controlsCompact", String(matches));
+		if (matches && !wasCompact) {
+			settingsPane.collapse();
+			stats.collapse();
+		}
+		wasCompact = matches;
+	};
+	const handleCompactChange = (event: MediaQueryListEvent): void => syncCompactPanes(event.matches);
 
 	let suppressDraftSave = false;
 	let copyTitleReset: number | undefined;
@@ -85,6 +98,8 @@ export const createDevPane = (): DevPane => {
 	});
 
 	const disposeThemeChange = onThemeChange(() => cfg.setTheme(settings.theme.mode));
+	compactQuery.addEventListener("change", handleCompactChange);
+	syncCompactPanes(compactQuery.matches);
 
 	let disposed = false;
 	return {
@@ -101,6 +116,7 @@ export const createDevPane = (): DevPane => {
 		dispose: () => {
 			if (disposed) return;
 			disposed = true;
+			compactQuery.removeEventListener("change", handleCompactChange);
 			disposeThemeChange();
 			clearCopyTitleReset();
 			cfg.dispose();

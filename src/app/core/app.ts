@@ -9,10 +9,15 @@ export type AppConfig = {
 	getProfile: () => DeviceProfile;
 	getRoute: () => RouteState;
 	getScroll: () => ScrollState;
-	beforeFrame?: (frame: Frame) => void;
-	afterFrame?: (frame: Frame) => void;
+	beforeFrame?: readonly FrameStage[];
+	afterFrame?: readonly FrameStage[];
 	profile?: <T>(label: string, callback: () => T) => T;
 	shouldRunContinuously?: () => boolean;
+};
+
+export type FrameStage = {
+	readonly name: string;
+	run: (frame: Frame) => void;
 };
 
 type PendingCallback = {
@@ -21,24 +26,31 @@ type PendingCallback = {
 	cancelled: boolean;
 };
 
-type ModuleTrace = {
+type RuntimeFaultKind = "frame" | "module" | "runtime" | "scheduler";
+
+type RuntimeSlot = {
+	key: string;
 	name: string;
+	kind: RuntimeFaultKind;
+};
+
+type RuntimeTrace = {
+	name: string;
+	kind: RuntimeFaultKind;
 	lastError?: string;
-	consecutiveUpdateErrors: number;
+	consecutiveErrors: number;
 	quarantined: boolean;
 };
 
 const MAX_DELTA_MS = 64;
-const MAX_CONSECUTIVE_UPDATE_ERRORS = 3;
+const MAX_CONSECUTIVE_RECURRING_ERRORS = 3;
 const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
 export class App {
 	private readonly modules: readonly Module[];
 	private readonly config: AppConfig;
-	private readonly traces = new Map<string, Pick<ModuleTrace, "name" | "lastError">>();
+	private readonly faults = new Map<string, RuntimeTrace>();
 	private readonly pendingCallbacks: PendingCallback[] = [];
-	private readonly updateFailures = new Map<Module, number>();
-	private readonly quarantinedModules = new Set<Module>();
 	private context: Context | undefined;
 	private rafId = 0;
 	private started = false;
@@ -52,6 +64,12 @@ export class App {
 	constructor(modules: readonly Module[], config: AppConfig) {
 		this.modules = modules;
 		this.config = config;
+		for (const module of modules) {
+			if (module.update) this.registerSlot(moduleUpdateSlot(module));
+		}
+		for (const stage of config.beforeFrame ?? []) this.registerSlot(frameStageSlot(stage));
+		for (const stage of config.afterFrame ?? []) this.registerSlot(frameStageSlot(stage));
+		if (config.shouldRunContinuously) this.registerSlot(CONTINUOUS_SCHEDULER_SLOT);
 	}
 
 	start(): void {
@@ -92,7 +110,7 @@ export class App {
 		} finally {
 			this.resetTimerScheduler?.();
 			this.resetTimerScheduler = undefined;
-			this.resetModuleFailures();
+			this.resetRecurringFailures();
 			this.ticking = false;
 			this.requestedDuringTick = false;
 			this.lastTime = 0;
@@ -101,7 +119,7 @@ export class App {
 
 	refreshPage(reason = "route:refresh"): void {
 		if (!this.started) return;
-		this.resetModuleFailures();
+		this.resetRecurringFailures();
 		setDataset(document.documentElement, "runtime", "ready");
 		setDataset(document.documentElement, "runtimeVisible", String(document.visibilityState === "visible"));
 		for (const module of this.modules) this.runLifecycle(module, "refresh");
@@ -138,16 +156,8 @@ export class App {
 		};
 	}
 
-	getTrace(): ModuleTrace[] {
-		return this.modules.map((module) => {
-			const trace = this.traces.get(module.name);
-			return {
-				name: module.name,
-				...(trace?.lastError ? { lastError: trace.lastError } : {}),
-				consecutiveUpdateErrors: this.updateFailures.get(module) ?? 0,
-				quarantined: this.quarantinedModules.has(module),
-			};
-		});
+	getTrace(): RuntimeTrace[] {
+		return Array.from(this.faults.values(), (trace) => ({ ...trace }));
 	}
 
 	private createContext(): Context {
@@ -222,22 +232,55 @@ export class App {
 
 	private recordError(module: Pick<Module, "name">, error: unknown): void {
 		const report = reportRuntimeError(module.name, error);
-		this.traces.set(module.name, { name: module.name, lastError: report.message });
+		const trace = this.getTraceFor(runtimeSlot(module.name));
+		trace.lastError = report.message;
 	}
 
-	private recordUpdateError(module: Module, error: unknown): void {
-		this.recordError(module, error);
-		const consecutiveErrors = (this.updateFailures.get(module) ?? 0) + 1;
-		this.updateFailures.set(module, consecutiveErrors);
-		if (consecutiveErrors < MAX_CONSECUTIVE_UPDATE_ERRORS) return;
-		this.quarantinedModules.add(module);
-		const report = reportRuntimeError(`${module.name}.update`, new Error(`${module.name} update quarantined after ${consecutiveErrors} consecutive failures`));
-		this.traces.set(module.name, { name: module.name, lastError: report.message });
+	private runRecurring(slot: RuntimeSlot, callback: () => boolean | void): boolean | void {
+		const trace = this.getTraceFor(slot);
+		if (trace.quarantined) return;
+		try {
+			const result = callback();
+			trace.consecutiveErrors = 0;
+			return result;
+		} catch (error) {
+			const report = reportRuntimeError(slot.name, error);
+			trace.lastError = report.message;
+			trace.consecutiveErrors += 1;
+			this.quarantineAfterRepeatedFailures(slot, trace);
+		}
 	}
 
-	private resetModuleFailures(): void {
-		this.updateFailures.clear();
-		this.quarantinedModules.clear();
+	private quarantineAfterRepeatedFailures(slot: RuntimeSlot, trace: RuntimeTrace): void {
+		const consecutiveErrors = trace.consecutiveErrors;
+		if (consecutiveErrors < MAX_CONSECUTIVE_RECURRING_ERRORS) return;
+		trace.quarantined = true;
+		const report = reportRuntimeError(`${slot.name}.quarantine`, new Error(`${slot.name} quarantined after ${consecutiveErrors} consecutive failures`));
+		trace.lastError = report.message;
+	}
+
+	private runFrameStages(stages: readonly FrameStage[] | undefined, frame: Frame): void {
+		for (const stage of stages ?? []) this.runRecurring(frameStageSlot(stage), () => stage.run(frame));
+	}
+
+	private registerSlot(slot: RuntimeSlot): void {
+		if (this.faults.has(slot.key)) throw new Error(`Duplicate runtime slot: ${slot.name}`);
+		this.faults.set(slot.key, createRuntimeTrace(slot));
+	}
+
+	private getTraceFor(slot: RuntimeSlot): RuntimeTrace {
+		const existing = this.faults.get(slot.key);
+		if (existing) return existing;
+		const trace = createRuntimeTrace(slot);
+		this.faults.set(slot.key, trace);
+		return trace;
+	}
+
+	private resetRecurringFailures(): void {
+		for (const trace of this.faults.values()) {
+			trace.consecutiveErrors = 0;
+			trace.quarantined = false;
+		}
 	}
 
 	private readonly tick = (timestamp: number): void => {
@@ -251,37 +294,29 @@ export class App {
 		try {
 			const frame = this.createFrame(timestamp);
 
-			try {
-				this.config.beforeFrame?.(frame);
-			} catch (error) {
-				this.recordError({ name: "beforeFrame" }, error);
-			}
+			this.runFrameStages(this.config.beforeFrame, frame);
 
 			this.runPendingCallbacks();
 			for (const module of this.modules) {
-				if (!module.update || this.quarantinedModules.has(module)) continue;
-				try {
+				if (!module.update) continue;
+				const result = this.runRecurring(moduleUpdateSlot(module), () => {
 					const update = (): boolean | void => module.update?.(frame);
-					const result = this.config.profile ? this.config.profile(module.name, update) : update();
-					this.updateFailures.delete(module);
-					needsNextFrame = result === true || needsNextFrame;
-				} catch (error) {
-					this.recordUpdateError(module, error);
-				}
+					return this.config.profile ? this.config.profile(module.name, update) : update();
+				});
+				needsNextFrame = result === true || needsNextFrame;
 			}
 
-			try {
-				this.config.afterFrame?.(frame);
-			} catch (error) {
-				this.recordError({ name: "afterFrame" }, error);
-			}
+			this.runFrameStages(this.config.afterFrame, frame);
 		} catch (error) {
 			this.recordError({ name: "frame" }, error);
 		} finally {
-			shouldContinue = this.config.shouldRunContinuously?.() === true || needsNextFrame || this.requestedDuringTick || this.pendingCallbacks.some((callback) => !callback.cancelled);
-			this.ticking = false;
-
-			if (!shouldContinue) this.lastTime = 0;
+			try {
+				const continuous = this.config.shouldRunContinuously !== undefined && this.runRecurring(CONTINUOUS_SCHEDULER_SLOT, () => this.config.shouldRunContinuously?.() === true) === true;
+				shouldContinue = continuous || needsNextFrame || this.requestedDuringTick || this.pendingCallbacks.some((callback) => !callback.cancelled);
+			} finally {
+				this.ticking = false;
+				if (!shouldContinue) this.lastTime = 0;
+			}
 		}
 		if (shouldContinue) this.requestFrame(this.lastReason);
 	};
@@ -297,3 +332,34 @@ export class App {
 		if (document.visibilityState === "visible") this.requestFrame("document:visibility");
 	};
 }
+
+const CONTINUOUS_SCHEDULER_SLOT: RuntimeSlot = {
+	key: "scheduler:continuous",
+	name: "scheduler.continuous",
+	kind: "scheduler",
+};
+
+const moduleUpdateSlot = (module: Module): RuntimeSlot => ({
+	key: `module:${module.name}.update`,
+	name: `${module.name}.update`,
+	kind: "module",
+});
+
+const frameStageSlot = (stage: FrameStage): RuntimeSlot => ({
+	key: `frame:${stage.name}`,
+	name: stage.name,
+	kind: "frame",
+});
+
+const runtimeSlot = (name: string): RuntimeSlot => ({
+	key: `runtime:${name}`,
+	name,
+	kind: "runtime",
+});
+
+const createRuntimeTrace = (slot: RuntimeSlot): RuntimeTrace => ({
+	name: slot.name,
+	kind: slot.kind,
+	consecutiveErrors: 0,
+	quarantined: false,
+});

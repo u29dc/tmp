@@ -58,7 +58,7 @@
 
 ## 5. Architecture
 
-- [`src/app/core/app.ts`](src/app/core/app.ts): owns the single visible `requestAnimationFrame` loop, lifecycle ordering, visibility handling, resize handling, and frame scheduling.
+- [`src/app/core/app.ts`](src/app/core/app.ts): owns the single visible `requestAnimationFrame` loop, lifecycle ordering, visibility handling, resize handling, frame scheduling, and bounded failure quarantine for recurring modules and named frame stages.
 - [`src/app/core/module.ts`](src/app/core/module.ts): defines module lifecycle hooks: `preInit`, `init`, `resize`, `update`, and `dispose`.
 - [`src/app/core/logger.ts`](src/app/core/logger.ts): centralizes browser runtime error reporting and keeps production error handling observable without scattered console calls.
 - [`src/app/systems/input.ts`](src/app/systems/input.ts): owns browser input listeners, passive snapshots, and input intent channels. Other systems should consume input state instead of binding duplicate pointer, wheel, keyboard, or click listeners.
@@ -82,7 +82,9 @@
 - `${site namespace}:controls` is a session flag for the controls surface.
 - `${site namespace}:settings` is a local versioned settings patch; it is not production configuration.
 - Controls are enabled by default in dev and built deployments, disabled for the current browser session with `?controls=0`, and re-enabled after session opt-out with `?controls=1`.
+- The Settings and Stats panes start collapsed at viewport widths up to `760px` or heights up to `700px`. Entering that compact range collapses both panes once; users can expand either pane without it being forced shut again until the viewport leaves and re-enters the range.
 - Reset Settings clears `${site namespace}:settings`, reapplies hardcoded defaults, and leaves `${site namespace}:controls` unchanged.
+- Pointer deltas and velocities are zero on the first event after initialization, route refresh, viewport exit, cancellation, blur, page hide, or document visibility loss so discontinuous coordinates cannot create a false impulse.
 - Native scroll is the fallback; smooth scrolling is an enhancement gated by settings, device, network, pointer, and motion profile.
 - Same-document hash links bypass `ClientRouter` and remain owned by the scroll system so offsets, history, and focus transfer stay consistent.
 - `settings.runtime.continuous` controls whether the runtime loop stays active while the document is visible. It defaults to `true`; set it to `false` only when deliberately testing demand-driven scheduling.
@@ -94,6 +96,7 @@
 - Keep first-paint theme values aligned between [`src/styles/tokens.css`](src/styles/tokens.css), [`src/app/core/settings.ts`](src/app/core/settings.ts), and [`src/app/boot.ts`](src/app/boot.ts).
 - Put project-specific metadata, route entries, feed items, and CMS adapters behind [`src/data/`](src/data) or a replacement data source.
 - Keep page files thin: route composition belongs in `src/pages`, shared behavior belongs in runtime, data, layout, or library modules.
+- Keep per-frame setup and cleanup as independently named stages so one optional instrumentation failure cannot skip input cleanup or create an unbounded error loop.
 - Use scoped Conventional Commits such as `feat(runtime): add scroll range state`.
 
 ## 8. Constraints
