@@ -24,16 +24,21 @@ type PendingCallback = {
 type ModuleTrace = {
 	name: string;
 	lastError?: string;
+	consecutiveUpdateErrors: number;
+	quarantined: boolean;
 };
 
 const MAX_DELTA_MS = 64;
+const MAX_CONSECUTIVE_UPDATE_ERRORS = 3;
 const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
 export class App {
 	private readonly modules: readonly Module[];
 	private readonly config: AppConfig;
-	private readonly traces = new Map<string, ModuleTrace>();
+	private readonly traces = new Map<string, Pick<ModuleTrace, "name" | "lastError">>();
 	private readonly pendingCallbacks: PendingCallback[] = [];
+	private readonly updateFailures = new Map<Module, number>();
+	private readonly quarantinedModules = new Set<Module>();
 	private context: Context | undefined;
 	private rafId = 0;
 	private started = false;
@@ -87,6 +92,7 @@ export class App {
 		} finally {
 			this.resetTimerScheduler?.();
 			this.resetTimerScheduler = undefined;
+			this.resetModuleFailures();
 			this.ticking = false;
 			this.requestedDuringTick = false;
 			this.lastTime = 0;
@@ -95,6 +101,7 @@ export class App {
 
 	refreshPage(reason = "route:refresh"): void {
 		if (!this.started) return;
+		this.resetModuleFailures();
 		setDataset(document.documentElement, "runtime", "ready");
 		setDataset(document.documentElement, "runtimeVisible", String(document.visibilityState === "visible"));
 		for (const module of this.modules) this.runLifecycle(module, "refresh");
@@ -132,7 +139,15 @@ export class App {
 	}
 
 	getTrace(): ModuleTrace[] {
-		return this.modules.map((module) => this.traces.get(module.name) ?? { name: module.name });
+		return this.modules.map((module) => {
+			const trace = this.traces.get(module.name);
+			return {
+				name: module.name,
+				...(trace?.lastError ? { lastError: trace.lastError } : {}),
+				consecutiveUpdateErrors: this.updateFailures.get(module) ?? 0,
+				quarantined: this.quarantinedModules.has(module),
+			};
+		});
 	}
 
 	private createContext(): Context {
@@ -210,6 +225,21 @@ export class App {
 		this.traces.set(module.name, { name: module.name, lastError: report.message });
 	}
 
+	private recordUpdateError(module: Module, error: unknown): void {
+		this.recordError(module, error);
+		const consecutiveErrors = (this.updateFailures.get(module) ?? 0) + 1;
+		this.updateFailures.set(module, consecutiveErrors);
+		if (consecutiveErrors < MAX_CONSECUTIVE_UPDATE_ERRORS) return;
+		this.quarantinedModules.add(module);
+		const report = reportRuntimeError(`${module.name}.update`, new Error(`${module.name} update quarantined after ${consecutiveErrors} consecutive failures`));
+		this.traces.set(module.name, { name: module.name, lastError: report.message });
+	}
+
+	private resetModuleFailures(): void {
+		this.updateFailures.clear();
+		this.quarantinedModules.clear();
+	}
+
 	private readonly tick = (timestamp: number): void => {
 		this.rafId = 0;
 		if (!this.started || document.visibilityState !== "visible") return;
@@ -229,13 +259,14 @@ export class App {
 
 			this.runPendingCallbacks();
 			for (const module of this.modules) {
-				if (!module.update) continue;
+				if (!module.update || this.quarantinedModules.has(module)) continue;
 				try {
 					const update = (): boolean | void => module.update?.(frame);
 					const result = this.config.profile ? this.config.profile(module.name, update) : update();
+					this.updateFailures.delete(module);
 					needsNextFrame = result === true || needsNextFrame;
 				} catch (error) {
-					this.recordError(module, error);
+					this.recordUpdateError(module, error);
 				}
 			}
 

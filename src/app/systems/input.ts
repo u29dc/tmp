@@ -97,6 +97,7 @@ class Input extends BaseModule {
 		document.addEventListener("pointerdown", this.handlePointerDown, { passive: true });
 		document.addEventListener("pointerup", this.handlePointerUp, { passive: true });
 		document.addEventListener("pointercancel", this.handlePointerUp, { passive: true });
+		document.addEventListener("pointerout", this.handlePointerOut, { passive: true });
 		this.bindWheelListener(this.wheelCancelRequests.size > 0);
 		document.addEventListener("click", this.handleClick);
 		document.addEventListener("keydown", this.handleKeyDown);
@@ -108,6 +109,7 @@ class Input extends BaseModule {
 		this.addCleanup(() => document.removeEventListener("pointerdown", this.handlePointerDown));
 		this.addCleanup(() => document.removeEventListener("pointerup", this.handlePointerUp));
 		this.addCleanup(() => document.removeEventListener("pointercancel", this.handlePointerUp));
+		this.addCleanup(() => document.removeEventListener("pointerout", this.handlePointerOut));
 		this.addCleanup(() => this.unbindWheelListener());
 		this.addCleanup(() => document.removeEventListener("click", this.handleClick));
 		this.addCleanup(() => document.removeEventListener("keydown", this.handleKeyDown));
@@ -119,6 +121,11 @@ class Input extends BaseModule {
 
 	override init(context: Context): void {
 		super.init(context);
+	}
+
+	override refresh(context: Context): void {
+		super.refresh(context);
+		this.clearTransientInput();
 	}
 
 	override resize(context: Context): void {
@@ -253,9 +260,24 @@ class Input extends BaseModule {
 		};
 	}
 
-	private releaseActiveInput(): void {
-		const hasActiveInput = this.state.pointer.isDown || this.activeKeys.size > 0 || this.state.keyboard.activeKeys.length > 0;
-		if (!hasActiveInput) return;
+	private clearTransientInput(): void {
+		const pointer = this.state.pointer;
+		const keyboard = this.state.keyboard;
+		const wheel = this.state.wheel;
+		const hasTransientInput =
+			pointer.isDown ||
+			pointer.wasPressed ||
+			pointer.wasReleased ||
+			pointer.dx !== 0 ||
+			pointer.dy !== 0 ||
+			pointer.vx !== 0 ||
+			pointer.vy !== 0 ||
+			pointer.path.length > 0 ||
+			this.activeKeys.size > 0 ||
+			keyboard.hadKeyboardInput ||
+			keyboard.activeKeys.length > 0 ||
+			wheel.source !== "none";
+		if (!hasTransientInput) return;
 		this.activeKeys.clear();
 		this.state = {
 			...this.state,
@@ -269,7 +291,9 @@ class Input extends BaseModule {
 				isDown: false,
 				wasPressed: false,
 				wasReleased: false,
+				path: [],
 			},
+			wheel: emptyWheel(),
 			keyboard: {
 				...this.state.keyboard,
 				hadKeyboardInput: false,
@@ -292,6 +316,11 @@ class Input extends BaseModule {
 	private readonly handlePointerUp = (event: PointerEvent): void => {
 		this.updatePointer(event, { released: true });
 		this.requestFrame("input:pointer");
+	};
+
+	private readonly handlePointerOut = (event: PointerEvent): void => {
+		if (event.relatedTarget !== null) return;
+		this.clearTransientInput();
 	};
 
 	private readonly handleWheel = (event: WheelEvent): void => {
@@ -351,11 +380,11 @@ class Input extends BaseModule {
 	};
 
 	private readonly handleInputLoss = (): void => {
-		this.releaseActiveInput();
+		this.clearTransientInput();
 	};
 
 	private readonly handleVisibilityChange = (): void => {
-		if (document.visibilityState === "hidden") this.releaseActiveInput();
+		if (document.visibilityState === "hidden") this.clearTransientInput();
 	};
 
 	private emitWheelIntent(event: WheelEvent, dx: number, dy: number): void {

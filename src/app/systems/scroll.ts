@@ -2,7 +2,7 @@ import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
 import type { DeviceProfile, ScrollRangeState, ScrollState } from "@/app/core/state";
 import { createInputWheelCancelRequest, onInputClickIntent, onInputWheelIntent, type InputClickIntent, type InputWheelCancelRequest, type InputWheelIntent } from "@/app/systems/input";
-import { setRouteHash } from "@/app/systems/route";
+import { navigateRouteHash } from "@/app/systems/route";
 import { focusElement, readClassToken, removeDataset, removeStyleProperty, setDataset, setStyleProperty, toggleClass } from "@/app/utils/dom";
 import { clamp, damp, fit, fixed, parseFiniteFloat, saturate, signedDirection, unlerp } from "@/app/utils/math";
 
@@ -583,13 +583,26 @@ class Scroll extends BaseModule {
 
 		intent.preventDefault();
 		const offset = parseFiniteFloat(trigger.dataset["scrollToOffset"], 0);
-		this.scrollTo(element, {
+		const options = {
 			offset,
 			immediate: trigger.dataset["scrollToImmediate"] !== undefined,
-		});
-		if (samePageUrl?.hash) setRouteHash(samePageUrl.hash);
+		};
+		if (samePageUrl?.hash) {
+			void this.navigateToAnchor(samePageUrl.hash, element, options).catch((error: unknown) => this.reportError("scroll.anchor", error));
+			return;
+		}
+		this.scrollTo(element, options);
 		focusElement(element);
 	};
+
+	private async navigateToAnchor(hash: string, element: HTMLElement, options: ScrollToOptions): Promise<void> {
+		await navigateRouteHash(hash);
+		this.nextFrame("scroll:anchor", () => {
+			if (!element.isConnected) return;
+			this.scrollTo(element, options);
+			focusElement(element);
+		});
+	}
 }
 
 const hasStateChanged = (previous: ScrollState, next: ScrollState): boolean =>

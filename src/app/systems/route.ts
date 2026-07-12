@@ -1,4 +1,4 @@
-import type { TransitionBeforePreparationEvent, TransitionBeforeSwapEvent } from "astro:transitions/client";
+import { navigate, type TransitionBeforePreparationEvent, type TransitionBeforeSwapEvent } from "astro:transitions/client";
 
 import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import type { RouteState } from "@/app/core/state";
@@ -113,10 +113,10 @@ class Route extends BaseModule {
 		return () => this.abortHandlers.delete(handler);
 	}
 
-	setHash(hash: string): void {
+	async navigateHash(hash: string): Promise<void> {
 		const nextHash = hash.startsWith("#") ? hash : `#${hash}`;
 		if (nextHash === "#") return;
-		if (window.location.hash !== nextHash) history.pushState(null, "", nextHash);
+		if (window.location.hash !== nextHash) await navigate(nextHash, { history: "push" });
 		this.refreshFromWindow();
 	}
 
@@ -152,10 +152,13 @@ class Route extends BaseModule {
 	}
 
 	private readonly refreshFromWindow = (): void => {
+		const pathname = window.location.pathname;
+		const hash = window.location.hash;
+		if (pathname === this.state.pathname && hash === this.state.hash) return;
 		this.state = {
 			...this.state,
-			pathname: window.location.pathname,
-			hash: window.location.hash,
+			pathname,
+			hash,
 			generation: this.state.generation + 1,
 		};
 		this.applyToDocument();
@@ -342,4 +345,4 @@ export const onRouteBeforeSwap = (handler: SwapHandler): (() => void) => route.o
 export const onRouteAfterSwap = (handler: RouteHandler): (() => void) => route.onAfterSwap(handler);
 export const onRouteLoad = (handler: RouteHandler): (() => void) => route.onLoad(handler);
 export const onRouteAbort = (handler: RouteHandler): (() => void) => route.onAbort(handler);
-export const setRouteHash = (hash: string): void => route.setHash(hash);
+export const navigateRouteHash = (hash: string): Promise<void> => route.navigateHash(hash);
