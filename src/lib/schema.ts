@@ -33,14 +33,22 @@ const imageSchema = (image: SiteImage): SchemaNode =>
 		name: image.alt,
 	});
 
-export const buildWebSiteSchema = (): SchemaNode => ({
-	"@type": "WebSite",
-	"@id": `${SITE.url}#website`,
-	url: SITE.url,
-	name: SITE.name,
-	description: SITE.description,
-	inLanguage: SITE.lang,
-});
+const organizationId = (organization: OrganizationSchemaInput): string => `${organization.url ?? SITE.url}#organization`;
+
+export const buildWebSiteSchema = (organization?: OrganizationSchemaInput): SchemaNode =>
+	compactSchema({
+		"@type": "WebSite",
+		"@id": `${SITE.url}#website`,
+		url: SITE.url,
+		name: SITE.name,
+		description: SITE.description,
+		inLanguage: SITE.lang,
+		publisher: organization
+			? {
+					"@id": organizationId(organization),
+				}
+			: undefined,
+	});
 
 export const buildWebPageSchema = (page: WebPageSchemaInput): SchemaNode =>
 	compactSchema({
@@ -62,7 +70,7 @@ export const buildOrganizationSchema = (organization?: OrganizationSchemaInput):
 	if (!organization) return undefined;
 	return compactSchema({
 		"@type": "Organization",
-		"@id": `${organization.url ?? SITE.url}#organization`,
+		"@id": organizationId(organization),
 		name: organization.name,
 		url: organization.url ?? SITE.url,
 		logo: organization.logo ? imageSchema(organization.logo) : undefined,
@@ -74,5 +82,8 @@ export const buildSchemaGraph = (nodes: Array<SchemaNode | undefined>): SchemaNo
 	"@context": SCHEMA_CONTEXT,
 	"@graph": nodes.filter((node): node is SchemaNode => Boolean(node)),
 });
+
+export const buildSitePageSchema = (page: WebPageSchemaInput): SchemaNode =>
+	buildSchemaGraph([buildOrganizationSchema(SITE.organization), buildWebSiteSchema(SITE.organization), buildWebPageSchema(page)]);
 
 export const serializeSchema = (schema: SchemaNode): string => JSON.stringify(schema).replaceAll("<", "\\u003c");

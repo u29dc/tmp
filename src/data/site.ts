@@ -13,6 +13,12 @@ export type SiteConfig = {
 	lang: string;
 	locale: string;
 	creator: string;
+	organization: {
+		name: string;
+		url?: string;
+		logo?: SiteImage;
+		sameAs?: string[];
+	};
 	keywords: string[];
 	faviconIcoPath: SitePath;
 	appleTouchIconPath: SitePath;
@@ -31,11 +37,12 @@ export type SiteConfig = {
 };
 
 const siteUrl = resolveSiteUrl(import.meta.env.SITE_URL);
+const siteName = "Website Template";
 
 export const SITE: SiteConfig = {
-	name: "Website Template",
+	name: siteName,
 	shortName: "Template",
-	title: "Website Template",
+	title: siteName,
 	description: "Placeholder architecture scaffold.",
 	url: siteUrl,
 	namespace: resolveSiteNamespace(siteUrl, import.meta.env.SITE_NAMESPACE),
@@ -43,6 +50,10 @@ export const SITE: SiteConfig = {
 	lang: "en-GB",
 	locale: "en_GB",
 	creator: "",
+	organization: {
+		name: siteName,
+		url: siteUrl,
+	},
 	keywords: ["website template"],
 	faviconIcoPath: "/favicon.ico",
 	appleTouchIconPath: "/apple-touch-icon.png",

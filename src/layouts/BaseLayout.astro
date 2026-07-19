@@ -5,6 +5,7 @@ import { getPageByPath } from '@/data/pages';
 import { SITE } from '@/data/site';
 import { createDefaultSettings, THEME_BOOT_PATHS } from '@/app/core/settings';
 import { absoluteSiteUrl } from '@/lib/seo';
+import { buildSitePageSchema, serializeSchema } from '@/lib/schema';
 import Router from '@/app/systems/router.astro';
 
 type Props = {
@@ -33,6 +34,16 @@ const canonicalUrl = absoluteSiteUrl(canonicalPath ?? Astro.url.pathname);
 const image = mergeImage(SITE.ogImage, page?.image, props.image);
 const ogImageUrl = absoluteSiteUrl(image.path);
 const robots = noindex ? 'noindex, nofollow' : 'index, follow';
+const structuredData = serializeSchema(
+	buildSitePageSchema({
+		url: canonicalUrl,
+		name: pageTitle,
+		description,
+		image,
+		...(publishedTime ? { datePublished: publishedTime } : {}),
+		...(modifiedTime ? { dateModified: modifiedTime } : {}),
+	}),
+);
 const defaultTheme = createDefaultSettings().theme;
 const themeSettings = {
 	paths: THEME_BOOT_PATHS,
@@ -107,6 +118,7 @@ const themeSettings = {
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImageUrl} />
 		<meta name="twitter:image:alt" content={image.alt} />
+		<script is:inline type="application/ld+json" set:html={structuredData}></script>
 		<Router />
 	</head>
 	<body>

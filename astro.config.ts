@@ -1,11 +1,16 @@
+import { fileURLToPath } from "node:url";
+
 import cloudflare from "@astrojs/cloudflare";
 import mdx from "@astrojs/mdx";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
+import { loadEnv } from "vite";
 
 import { resolveSiteUrl } from "./src/lib/origin";
 
-const site = resolveSiteUrl(process.env["SITE_URL"]);
+const root = fileURLToPath(new URL(".", import.meta.url));
+const env = loadEnv(readAstroMode(process.argv), root, "");
+const site = resolveSiteUrl(env["SITE_URL"]);
 const siteUrl = new URL(site);
 
 export default defineConfig({
@@ -55,3 +60,10 @@ export default defineConfig({
 		plugins: [tailwindcss()],
 	},
 });
+
+function readAstroMode(arguments_: string[]): string {
+	const modeIndex = arguments_.indexOf("--mode");
+	const explicitMode = modeIndex >= 0 ? arguments_[modeIndex + 1]?.trim() : undefined;
+	if (explicitMode) return explicitMode;
+	return arguments_.some((argument) => argument === "dev") ? "development" : "production";
+}
