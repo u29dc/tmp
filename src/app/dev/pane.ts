@@ -2,6 +2,7 @@ import { createCfg, type Cfg, type Control, type Pane } from "cfg";
 
 import { clearSettingsDraft, scheduleSettingsDraftSave } from "@/app/core/draft";
 import { createSettingsPatch, getNumberSettingBounds, resetSettings, settings, type SettingPath, type ThemeColors } from "@/app/core/settings";
+import { applyMotionSettings } from "@/app/systems/motion";
 import { getPerformanceState } from "@/app/systems/performance";
 import { applyScrollSettings } from "@/app/systems/scroll";
 import { applyThemeSettings, onThemeChange } from "@/app/systems/theme";
@@ -36,7 +37,9 @@ export type DevPane = {
 
 export const createDevPane = (): DevPane => {
 	const container = createContainer();
-	document.body.append(container);
+	const host = document.querySelector<HTMLElement>('[data-controls-host="true"]');
+	if (!host) throw new Error("Controls host is missing");
+	host.append(container);
 	const compactQuery = window.matchMedia(COMPACT_CONTROLS_QUERY);
 	let wasCompact = compactQuery.matches;
 	setDataset(container, "controlsCompact", String(wasCompact));
@@ -81,6 +84,7 @@ export const createDevPane = (): DevPane => {
 	};
 
 	const bind = <T>(control: Control<T>, path?: SettingPath): Control<T> => {
+		nameRangeInputs(control);
 		boundControls.add(control);
 		control.on("change", () => handleChange(path));
 		return control;
@@ -286,6 +290,7 @@ const copySettingsToClipboard = async (): Promise<void> => {
 
 const applyAllSettings = (): void => {
 	applyThemeSettings();
+	applyMotionSettings();
 	applyScrollSettings();
 };
 
@@ -295,6 +300,14 @@ const createContainer = (): HTMLElement => {
 	setDataset(container, "nativeScroll", "true");
 	container.setAttribute("aria-label", "Settings controls");
 	return container;
+};
+
+const nameRangeInputs = (control: Control): void => {
+	if (!control.label) return;
+	for (const input of control.element.querySelectorAll<HTMLInputElement>('input[type="range"]')) {
+		if (input.hasAttribute("aria-label") || input.hasAttribute("aria-labelledby")) continue;
+		input.setAttribute("aria-label", `${control.label} slider`);
+	}
 };
 
 type Binder = <T>(control: Control<T>, path?: SettingPath) => Control<T>;

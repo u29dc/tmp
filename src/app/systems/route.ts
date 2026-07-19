@@ -1,6 +1,6 @@
 import { navigate, type TransitionBeforePreparationEvent, type TransitionBeforeSwapEvent } from "astro:transitions/client";
 
-import { BaseModule, type Context, type Frame } from "@/app/core/module";
+import { BaseModule, type Context } from "@/app/core/module";
 import type { RouteState } from "@/app/core/state";
 import { composedPath, setDataset } from "@/app/utils/dom";
 
@@ -66,10 +66,6 @@ class Route extends BaseModule {
 
 	override resize(context: Context): void {
 		super.resize(context);
-	}
-
-	override update(frame: Frame): void {
-		super.update(frame);
 	}
 
 	override dispose(): void {

@@ -59,7 +59,7 @@
 ## 5. Architecture
 
 - [`src/app/core/app.ts`](src/app/core/app.ts): owns the single visible `requestAnimationFrame` loop, lifecycle ordering, visibility handling, resize handling, frame scheduling, and bounded failure quarantine for recurring modules and named frame stages.
-- [`src/app/core/module.ts`](src/app/core/module.ts): defines module lifecycle hooks: `preInit`, `init`, `resize`, `update`, and `dispose`.
+- [`src/app/core/module.ts`](src/app/core/module.ts): defines module lifecycle hooks: `preInit`, `init`, `refresh`, `resize`, `update`, and `dispose`.
 - [`src/app/core/logger.ts`](src/app/core/logger.ts): centralizes browser runtime error reporting and keeps production error handling observable without scattered console calls.
 - [`src/app/systems/input.ts`](src/app/systems/input.ts): owns browser input listeners, passive snapshots, and input intent channels. Other systems should consume input state instead of binding duplicate pointer, wheel, keyboard, or click listeners.
 - [`src/app/systems/scroll.ts`](src/app/systems/scroll.ts): owns native-backed smooth wheel enhancement, anchors, and `[data-scroll]` ranges.
@@ -81,13 +81,13 @@
 - Controls use browser keys named `${site namespace}:controls` and `${site namespace}:settings`.
 - `${site namespace}:controls` is a session flag for the controls surface.
 - `${site namespace}:settings` is a local versioned settings patch; it is not production configuration.
-- Controls are enabled by default in dev and built deployments, disabled for the current browser session with `?controls=0`, and re-enabled after session opt-out with `?controls=1`.
+- Controls are included and enabled by default in dev and built deployments, disabled for the current browser session with `?controls=0`, and re-enabled after session opt-out with `?controls=1`.
 - The Settings and Stats panes start collapsed at viewport widths up to `760px` or heights up to `700px`. Entering that compact range collapses both panes once; users can expand either pane without it being forced shut again until the viewport leaves and re-enters the range.
 - Reset Settings clears `${site namespace}:settings`, reapplies hardcoded defaults, and leaves `${site namespace}:controls` unchanged.
 - Pointer deltas and velocities are zero on the first event after initialization, route refresh, viewport exit, cancellation, blur, page hide, or document visibility loss so discontinuous coordinates cannot create a false impulse.
 - Native scroll is the fallback; smooth scrolling is an enhancement gated by settings, device, network, pointer, and motion profile.
 - Same-document hash links bypass `ClientRouter` and remain owned by the scroll system so offsets, history, and focus transfer stay consistent.
-- `settings.runtime.continuous` controls whether the runtime loop stays active while the document is visible. It defaults to `true`; set it to `false` only when deliberately testing demand-driven scheduling.
+- `settings.runtime.continuous` controls whether the runtime loop stays active while the document is visible. It defaults to `true`; set it to `false` through settings or `?runtime.continuous=0` when demand-driven scheduling is preferred.
 
 ## 7. Conventions
 
@@ -99,7 +99,15 @@
 - Keep per-frame setup and cleanup as independently named stages so one optional instrumentation failure cannot skip input cleanup or create an unbounded error loop.
 - Use scoped Conventional Commits such as `feat(runtime): add scroll range state`.
 
-## 8. Constraints
+## 8. Motion Contract
+
+- [`src/app/systems/route.ts`](src/app/systems/route.ts) owns navigation state in `data-route-state`: `idle` -> `exiting` -> `swapping` -> `entering` -> `loaded` -> `idle`. It waits for preparation handlers before swap, refreshes state after swap, and returns to `idle` after page load.
+- [`src/app/systems/motion.ts`](src/app/systems/motion.ts) owns visual state in `data-page-state` and `data-route-motion`: `exiting` during the short preparation delay, `swapping` at document replacement, `entering` after swap, then `idle`. A new transition or abort cancels the current handle and restores `idle`; stale callbacks are rejected by transition tokens.
+- CSS consumes `data-page-state`, `data-motion`, `--motion-route-exit-duration`, and `--motion-route-enter-duration`. Animate only `transform` and `opacity` in the base route layer; keep defaults brief and page-level choreography interruptible.
+- Reduced-motion and reduced-quality profiles set durations to zero and bypass custom animation. Astro `ClientRouter` uses its swap fallback while root View Transition animations are disabled, so only one visual layer animates. Browser history, focus, document swap, native scroll, and same-page anchors remain browser, Astro, route, and scroll responsibilities rather than motion concerns.
+- Build future choreography on the existing scheduler and route events rather than adding independent global listeners, timers, animation loops, or a timeline abstraction without a concrete design need.
+
+## 9. Constraints
 
 - Treat [`public/_headers`](public/_headers) as deployment-critical. HSTS preload and cross-origin policies should be checked before attaching a real domain.
 - Treat root [`wrangler.jsonc`](wrangler.jsonc) as the Astro Cloudflare adapter input. Deploy through the package scripts so Astro generates the final `dist/client/wrangler.json` config before Wrangler runs.
@@ -110,7 +118,7 @@
 - Validate public claims, structured data, social metadata, robots behavior, and feed content against project sources before launch.
 - Avoid editing generated Cloudflare types by hand; regenerate with `bun run cf:types`.
 
-## 9. Validation
+## 10. Validation
 
 - Required gate before completion: `bun run util:check`.
 - Run `git diff --check` before commit.

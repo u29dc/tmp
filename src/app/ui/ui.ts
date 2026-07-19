@@ -29,8 +29,7 @@ class UI extends BaseModule {
 		link.resize(context);
 	}
 
-	override update(frame: Frame): boolean | void {
-		super.update(frame);
+	update(frame: Frame): boolean | void {
 		const buttonChanged = button.update(frame) === true;
 		const linkChanged = link.update(frame) === true;
 		return buttonChanged || linkChanged;

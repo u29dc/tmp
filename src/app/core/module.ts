@@ -49,8 +49,6 @@ export abstract class BaseModule implements Module {
 
 	resize(_context: Context): void {}
 
-	update(_frame: Frame): boolean | void {}
-
 	dispose(): void {
 		const errors: unknown[] = [];
 		try {

@@ -183,6 +183,37 @@
 	}
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	html[data-motion="ready"][data-page-state="exiting"] main {
+		opacity: 0;
+		transform: translate3d(0, var(--motion-page-exit-y), 0);
+		transition:
+			opacity var(--motion-route-exit-duration) var(--ease-route),
+			transform var(--motion-route-exit-duration) var(--ease-route);
+	}
+
+	html[data-motion="ready"][data-page-state="entering"] main {
+		animation: route-enter var(--motion-route-enter-duration) var(--ease-reveal) both;
+	}
+}
+
+@keyframes route-enter {
+	from {
+		opacity: 0;
+		transform: translate3d(0, var(--motion-reveal-y), 0);
+	}
+
+	to {
+		opacity: 1;
+		transform: translate3d(0, 0, 0);
+	}
+}
+
 @media (hover: hover) and (pointer: fine) {
 	[data-ui="button"],
 	[data-ui="link"] {

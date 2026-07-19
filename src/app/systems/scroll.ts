@@ -114,20 +114,25 @@ class Scroll extends BaseModule {
 	override refresh(context: Context): void {
 		super.refresh(context);
 		this.scan();
+		this.syncFromWindow("route", performance.now());
 		this.requestFrame("scroll:refresh");
 	}
 
 	override resize(context: Context): void {
 		super.resize(context);
 		this.needsMeasure = true;
-		this.state.limit = this.measureLimit();
+		this.refreshScrollLimit();
 		this.clampSmoothModelToLimit();
 		this.requestFrame("scroll:resize");
 	}
 
-	override update(frame: Frame): boolean | void {
-		super.update(frame);
+	update(frame: Frame): boolean | void {
 		const hadPendingWrite = this.writeY !== undefined;
+		const shouldMeasure = this.needsMeasure;
+		if (shouldMeasure) {
+			this.refreshScrollLimit();
+			this.clampSmoothModelToLimit();
+		}
 		this.refreshCapability(frame.profile);
 		if (this.smoothActive && (frame.input.pointer.wasPressed || frame.input.keyboard.hadKeyboardInput)) {
 			this.syncFromWindow("native", frame.now);
@@ -139,12 +144,12 @@ class Scroll extends BaseModule {
 		this.state = nextState;
 		this.source = "native";
 
-		if (this.needsMeasure) this.measureElements(this.state.actual);
+		if (shouldMeasure) this.measureElements(this.state.actual);
 		this.computeElements(frame);
-		if (stateChanged || this.needsMeasure) this.writeRootState();
+		if (stateChanged || shouldMeasure) this.writeRootState();
 		this.writeElements(frame, stateChanged);
 		this.writeScrollPosition();
-		const needsNextFrame = this.smoothActive || hadPendingWrite || this.needsMeasure || this.state.isScrolling || this.hasActiveScrollWork();
+		const needsNextFrame = this.smoothActive || hadPendingWrite || this.state.isScrolling || this.hasActiveScrollWork();
 		this.needsMeasure = false;
 		return needsNextFrame;
 	}
@@ -181,10 +186,10 @@ class Scroll extends BaseModule {
 	scrollTo(target: number | string | HTMLElement, options: ScrollToOptions = {}): void {
 		const y = this.resolveTargetY(target, options.offset ?? 0);
 		if (y === null) return;
-		const limit = this.measureLimit();
+		this.refreshScrollLimit();
+		const limit = this.state.limit;
 		const reducedMotion = this.latestProfile?.reducedMotion ?? false;
 		this.source = "anchor";
-		this.state.limit = limit;
 		this.stopSmooth();
 		window.scrollTo({
 			top: clamp(y, 0, limit),
@@ -301,7 +306,7 @@ class Scroll extends BaseModule {
 	}
 
 	private readSmooth(source: ScrollState["source"], dt: number, now: number): ScrollState {
-		const limit = this.measureLimit();
+		const limit = this.state.limit;
 		this.smoothTarget = clamp(this.smoothTarget, 0, limit);
 		this.animator.retarget(this.smoothTarget);
 		const settled = this.animator.advance(dt);
@@ -332,10 +337,10 @@ class Scroll extends BaseModule {
 	}
 
 	private readWindow(source: ScrollState["source"], dt: number, now: number): ScrollState {
-		const limit = this.measureLimit();
+		const limit = this.state.limit;
 		const actual = clamp(window.scrollY, 0, limit);
 		const delta = actual - this.previousY;
-		const changed = Math.abs(delta) > 0.01 || limit !== this.state.limit;
+		const changed = Math.abs(delta) > 0.01;
 		const velocity = dt > 0 && changed ? delta / dt : 0;
 		const direction = changed ? signedDirection(delta) : this.state.direction;
 		const isScrolling = changed || now - this.lastScrollAt < SETTLE_MS;
@@ -365,8 +370,13 @@ class Scroll extends BaseModule {
 		return Math.max(0, Math.max(body.scrollHeight, root.scrollHeight) - window.innerHeight);
 	}
 
+	private refreshScrollLimit(): void {
+		this.state.limit = this.measureLimit();
+	}
+
 	private syncFromWindow(source: ScrollState["source"], now = performance.now()): void {
-		const limit = this.measureLimit();
+		this.refreshScrollLimit();
+		const limit = this.state.limit;
 		const actual = clamp(window.scrollY, 0, limit);
 		this.smoothActive = false;
 		this.smoothTarget = actual;
@@ -544,7 +554,7 @@ class Scroll extends BaseModule {
 	};
 
 	private startSmoothScroll(deltaY: number): void {
-		this.state.limit = this.measureLimit();
+		this.refreshScrollLimit();
 		if (!this.smoothActive) {
 			const y = clamp(window.scrollY, 0, this.state.limit);
 			this.smoothTarget = y;

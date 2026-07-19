@@ -95,8 +95,8 @@ export const SETTING_SCHEMA = {
 		pageMultiplier: numberSetting(0.9, { min: 0.25, max: 1.5, step: 0.01 }),
 	},
 	motion: {
-		routeExitMs: numberSetting(0, { min: 0, max: 1200, step: 10 }),
-		routeEnterMs: numberSetting(260, { min: 0, max: 1200, step: 10 }),
+		routeExitMs: numberSetting(100, { min: 0, max: 1200, step: 10 }),
+		routeEnterMs: numberSetting(220, { min: 0, max: 1200, step: 10 }),
 		routeBufferMs: numberSetting(40, { min: 0, max: 300, step: 10 }),
 	},
 	device: {

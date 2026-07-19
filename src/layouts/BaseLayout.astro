@@ -126,6 +126,7 @@ const themeSettings = {
 		<main id="main" class:list={['min-h-dvh w-full p-(--space-page)', props.mainClass]}>
 			<slot />
 		</main>
+		<div data-controls-host="true" transition:persist></div>
 		<script>
 			import '@/app/app';
 		</script>

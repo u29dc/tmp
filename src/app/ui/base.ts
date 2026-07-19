@@ -24,6 +24,7 @@ export type InteractiveState = {
 
 export abstract class Component extends BaseModule {
 	protected readonly states = new Map<HTMLElement, InteractiveState>();
+	abstract update(frame: Frame): boolean | void;
 
 	override preInit(context: Context): void {
 		super.preInit(context);
@@ -35,10 +36,6 @@ export abstract class Component extends BaseModule {
 
 	override resize(context: Context): void {
 		super.resize(context);
-	}
-
-	override update(frame: Frame): void {
-		super.update(frame);
 	}
 
 	override dispose(): void {

@@ -60,10 +60,6 @@ class Performance extends BaseModule {
 		super.resize(context);
 	}
 
-	override update(frame: Frame): void {
-		super.update(frame);
-	}
-
 	beginFrame(_frame: Frame): void {
 		this.frameStartedAt = performance.now();
 	}

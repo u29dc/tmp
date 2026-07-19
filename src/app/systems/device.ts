@@ -1,4 +1,4 @@
-import { BaseModule, type Context, type Frame } from "@/app/core/module";
+import { BaseModule, type Context } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
 import type { DeviceProfile, DisplayProfile, PointerProfile, MotionQuality, NetworkProfile, PerformanceTier } from "@/app/core/state";
 import { setDataset } from "@/app/utils/dom";
@@ -62,10 +62,6 @@ class Device extends BaseModule {
 	override resize(context: Context): void {
 		super.resize(context);
 		this.refreshProfile();
-	}
-
-	override update(frame: Frame): void {
-		super.update(frame);
 	}
 
 	override dispose(): void {

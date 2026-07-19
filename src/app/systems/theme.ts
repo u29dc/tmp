@@ -1,4 +1,4 @@
-import { BaseModule, type Context, type Frame } from "@/app/core/module";
+import { BaseModule, type Context } from "@/app/core/module";
 import { settings, type ThemeColors } from "@/app/core/settings";
 import { setDataset, setStyleProperty } from "@/app/utils/dom";
 
@@ -28,10 +28,6 @@ class Theme extends BaseModule {
 	override resize(context: Context): void {
 		super.resize(context);
 		this.applySettings();
-	}
-
-	override update(frame: Frame): void {
-		super.update(frame);
 	}
 
 	override dispose(): void {

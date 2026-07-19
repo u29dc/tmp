@@ -15,4 +15,8 @@
 	[data-controls-pane="true"]::-webkit-scrollbar {
 		@apply hidden;
 	}
+
+	[data-controls-pane="true"][data-controls-compact="true"] .cfg-pane {
+		flex-basis: auto;
+	}
 }

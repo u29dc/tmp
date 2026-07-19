@@ -133,10 +133,6 @@ class Input extends BaseModule {
 		super.resize(context);
 	}
 
-	override update(frame: Frame): void {
-		super.update(frame);
-	}
-
 	postUpdate(_frame: Frame): void {
 		this.state = {
 			...this.state,

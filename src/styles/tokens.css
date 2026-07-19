@@ -89,6 +89,8 @@
 	--duration-page-exit: 100ms;
 	--duration-reveal: 360ms;
 	--duration-reveal-stagger: 36ms;
+	--motion-route-exit-duration: var(--duration-page-exit);
+	--motion-route-enter-duration: var(--duration-medium);
 
 	--press-scale: 0.97;
 	--motion-page-exit-y: -0.125rem;

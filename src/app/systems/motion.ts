@@ -2,7 +2,7 @@ import { BaseModule, type Context, type Frame } from "@/app/core/module";
 import { settings } from "@/app/core/settings";
 import { delayTimer, setTimer } from "@/app/core/timer";
 import { onRouteAbort, onRouteAfterSwap, onRouteBeforeSwap, onRouteLoad, onRoutePreparation, type RouteEvent } from "@/app/systems/route";
-import { removeDataset, setDataset } from "@/app/utils/dom";
+import { removeDataset, setDataset, setStyleProperty } from "@/app/utils/dom";
 
 export type MotionHandle = {
 	readonly name: string;
@@ -21,6 +21,7 @@ class Motion extends BaseModule {
 	private routeHandle: MotionHandle | undefined;
 	private routeHandleToken: number | undefined;
 	private routeMotionToken = 0;
+	private profileGeneration = -1;
 	private handles = new Set<MotionHandle>();
 
 	override preInit(context: Context): void {
@@ -30,15 +31,17 @@ class Motion extends BaseModule {
 
 	override init(context: Context): void {
 		super.init(context);
-		this.applyReadyState();
+		this.applySettings();
 	}
 
 	override resize(context: Context): void {
 		super.resize(context);
+		this.applySettings();
 	}
 
-	override update(frame: Frame): void {
-		super.update(frame);
+	update(frame: Frame): void {
+		if (frame.profile.generation === this.profileGeneration) return;
+		this.applySettings();
 	}
 
 	override dispose(): void {
@@ -94,18 +97,21 @@ class Motion extends BaseModule {
 		return handle;
 	}
 
+	applySettings(): void {
+		const root = document.documentElement;
+		this.profileGeneration = this.context?.profile.generation ?? -1;
+		setDataset(root, "motion", this.canAnimate() ? "ready" : "reduced");
+		setStyleProperty(root, "--motion-route-exit-duration", `${this.readDuration(settings.motion.routeExitMs)}ms`);
+		setStyleProperty(root, "--motion-route-enter-duration", `${this.readDuration(settings.motion.routeEnterMs)}ms`);
+		if (root.dataset["pageState"] === undefined) setDataset(root, "pageState", "idle");
+	}
+
 	private bindRoute(): void {
 		this.addCleanup(onRoutePreparation(this.handleRoutePreparation));
 		this.addCleanup(onRouteBeforeSwap(this.handleRouteBeforeSwap));
 		this.addCleanup(onRouteAfterSwap(this.handleRouteAfterSwap));
 		this.addCleanup(onRouteLoad(this.handleRouteLoad));
 		this.addCleanup(onRouteAbort(this.handleRouteAbort));
-	}
-
-	private applyReadyState(): void {
-		const root = document.documentElement;
-		setDataset(root, "motion", this.canAnimate() ? "ready" : "reduced");
-		setDataset(root, "pageState", "idle");
 	}
 
 	private canAnimate(): boolean {
@@ -220,6 +226,7 @@ class Motion extends BaseModule {
 }
 
 export const motion = new Motion();
+export const applyMotionSettings = (): void => motion.applySettings();
 export const nextMotionFrame = (name: string, callback: () => void): MotionHandle => motion.queueFrame(name, callback);
 export const delayMotion = (name: string, milliseconds: number, callback?: () => void): MotionHandle => motion.delay(name, milliseconds, callback);
 export const runMotionSequence = (name: string, steps: MotionStep[]): MotionHandle => motion.runSequence(name, steps);

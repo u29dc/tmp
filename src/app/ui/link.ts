@@ -24,7 +24,6 @@ class Link extends Component {
 	}
 
 	override update(frame: Frame): boolean | void {
-		super.update(frame);
 		let needsFrame = false;
 		for (const state of this.states.values()) {
 			needsFrame = this.updateStateFromInput(frame, state) || needsFrame;
